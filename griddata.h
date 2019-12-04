@@ -13,6 +13,7 @@
 #define _QUADRATURE_NODES 2
 #define _DOF1D 2
 #define _DOF2D _DOF1D*_DOF1D
+#define _DIM 2
 
 #include<stdlib.h>
 
@@ -28,10 +29,6 @@ typedef struct GridData{
 	double VandermondeM [_DOF1D][_QUADRATURE_NODES];
 	double derivativeVandermondeM [_DOF1D][_QUADRATURE_NODES];
 
-
-	double tensorM1[_QUADRATURE_NODES][_DOF1D];
-	double tensorM2[_QUADRATURE_NODES][_QUADRATURE_NODES];
-	double tensorM3[_DOF1D][_QUADRATURE_NODES];
 }GridData;
 
 int init_GridData(unsigned M,double L,GridData *data);
@@ -43,8 +40,6 @@ int init_VandermondeM(GridData *data);
 
 int free_FEtoDOF(GridData *data);
 int free_GridData(GridData *data);
-
-
 
 
 

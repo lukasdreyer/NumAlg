@@ -19,6 +19,11 @@ void print_int_mat(unsigned **mat,unsigned n,unsigned m){
 		printf("\n");
 	}
 }
+double TensorVandermonde(unsigned p,unsigned p_ref,unsigned i, unsigned alpha, GridData *data){
+	if(p==p_ref)return data->VandermondeM[i][alpha];
+	return data->derivativeVandermondeM[i][alpha];
+}
+
 double norm_l2(FunctionPointer f,GridData *data){
 	double sum=0;
 	double f_val,tx,ty;

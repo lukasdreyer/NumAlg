@@ -87,3 +87,8 @@ double determinant_jacobian_transformation(unsigned e,double x, double y, GridDa
 
 	return r * ((1-c)/2) * (M_PI/4) / (M*M);
 }
+
+double geometryterm(unsigned p,unsigned q,unsigned alpha,unsigned beta,GridData *data){
+	//TODO
+	return 0;
+}

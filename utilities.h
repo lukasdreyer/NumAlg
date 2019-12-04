@@ -9,4 +9,7 @@ double one(double a, double b);
 void print_int_mat(unsigned **mat,unsigned n,unsigned m);
 double norm_l2(FunctionPointer f,GridData *data);
 
+double TensorVandermonde(unsigned p,unsigned p_ref,unsigned i, unsigned alpha, GridData *data);
+
+
 #endif
