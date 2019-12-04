@@ -25,6 +25,13 @@ typedef struct GridData{
 	double q_nodes[_QUADRATURE_NODES];
 	unsigned *boundary_nodes;
 	unsigned **FEtoDOF;
+	double VandermondeM [_DOF1D][_QUADRATURE_NODES];
+	double derivativeVandermondeM [_DOF1D][_QUADRATURE_NODES];
+
+
+	double tensorM1[_QUADRATURE_NODES][_DOF1D];
+	double tensorM2[_QUADRATURE_NODES][_QUADRATURE_NODES];
+	double tensorM3[_DOF1D][_QUADRATURE_NODES];
 }GridData;
 
 int init_GridData(unsigned M,double L,GridData *data);
@@ -32,6 +39,7 @@ int init_GridData(unsigned M,double L,GridData *data);
 int init_boundary_nodes(GridData *data);
 int init_FEtoDOF(GridData* data);
 int init_quadrature(GridData* data);
+int init_VandermondeM(GridData *data);
 
 int free_FEtoDOF(GridData *data);
 int free_GridData(GridData *data);

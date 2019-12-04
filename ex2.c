@@ -18,16 +18,18 @@ static char help[]="Solves -laplace(u)=f approximately on a circular-grid.\n\nOp
 #include "matshell.h"
 
 
+
 int main(int argc,char **args){
-	Vec				x, b, f;		/* approx solution, RHS, function values */
-	Mat				StiffnessM, MassM, boundaryStiffnessM;			/* stifness and mass matrix */
-	KSP				ksp;			/* linear solver context */
-	PC				pc;			/* preconditioner context */
-	PetscInt			M=8;			/*Number of elements in one direction*/
-	PetscScalar			L=0.8;
+	Vec				x, b;			/* approx solution, RHS, function values */
+	Mat			MassM;
+//	StiffnessM, MassM, boundaryStiffnessM;			/* stifness and mass matrix */
+//	KSP				ksp;				/* linear solver context */
+//	PC				pc;					/* preconditioner context */
+	PetscInt			M=32;			/*Number of elements in one direction*/
+	PetscScalar			L=0.8,norm;
 
 	PetscErrorCode			ierr;
-	PetscInt			its;
+//	PetscInt			its;
 	PetscMPIInt			size;
 
 	GridData			data;
@@ -47,31 +49,45 @@ int main(int argc,char **args){
 
 	ierr = VecCreate(PETSC_COMM_WORLD,&x);CHKERRQ(ierr);
 	ierr = VecSetSizes(x,PETSC_DECIDE,data.global_dof);CHKERRQ(ierr);
-	ierr = VecSetFromOptions(x);CHKERRQ(ierr);
+	ierr = VecSetFromOptions(x);
+
 	ierr = VecDuplicate(x,&b);CHKERRQ(ierr);
-	ierr = VecDuplicate(x,&f);CHKERRQ(ierr);
+
+	ierr = VecSet(x,1);CHKERRQ(ierr);
+	ierr = VecSet(b,0);CHKERRQ(ierr);
+
+	ierr = VecAssemblyBegin(x);CHKERRQ(ierr);
+	ierr = VecAssemblyEnd(x);CHKERRQ(ierr);
+	ierr = VecAssemblyBegin(b);CHKERRQ(ierr);
+	ierr = VecAssemblyEnd(b);CHKERRQ(ierr);
+
+
+//	ierr = VecDuplicate(x,&f);CHKERRQ(ierr);
 
 	/* Create Matrices A and M */
 
 	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&MassM);CHKERRQ(ierr);
-	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&StiffnessM);CHKERRQ(ierr);
-	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&boundaryStiffnessM);CHKERRQ(ierr);
+//	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&StiffnessM);CHKERRQ(ierr);
+//	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&boundaryStiffnessM);CHKERRQ(ierr);
 
 	/*
 	* Fill Matrices A and M
 	*/
 
 	ierr = MatShellSetOperation(MassM,MATOP_MULT,(void(*)(void))mass_mult);CHKERRQ(ierr);
-	ierr = MatShellSetOperation(StiffnessM,MATOP_MULT,(void(*)(void))stiffness_mult);CHKERRQ(ierr);
-	ierr = MatShellSetOperation(boundaryStiffnessM,MATOP_MULT,(void(*)(void))boundary_mult);CHKERRQ(ierr);
+//	ierr = MatShellSetOperation(StiffnessM,MATOP_MULT,(void(*)(void))stiffness_mult);CHKERRQ(ierr);
+//	ierr = MatShellSetOperation(boundaryStiffnessM,MATOP_MULT,(void(*)(void))boundary_mult);CHKERRQ(ierr);
 
 	/* Fill Vec f and b=M*f */
 //TODO
 //	ierr = assembleVecFct(f,&data);CHKERRQ(ierr);
-	ierr = MatMult(MassM,f,b);CHKERRQ(ierr);
+	ierr = MatMult(MassM,x,b);CHKERRQ(ierr);
+	ierr = VecDot(x,b,&norm);CHKERRQ(ierr);
+	printf("error: %.10f,norm: %.10f,sqrt(pi): %.10f, \n", fabs(sqrt(norm)-sqrt(M_PI)),sqrt(norm),sqrt(M_PI));
+
 
 	/* Create a Linear solver (Krylov space) */
-
+/*
 	ierr = KSPCreate(PETSC_COMM_WORLD,&ksp);CHKERRQ(ierr);
 	ierr = KSPSetOperators(ksp,boundaryStiffnessM,boundaryStiffnessM);CHKERRQ(ierr);
 
@@ -83,37 +99,36 @@ int main(int argc,char **args){
 
 	ierr = KSPSetTolerances(ksp,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT);CHKERRQ(ierr);
 
-	/*set runtime options*/
 
 	ierr = KSPSetFromOptions(ksp);CHKERRQ(ierr);
 
-	/*Solve the linear system A*x = b = M*f */
 
 	ierr = KSPSolve(ksp,b,x);CHKERRQ(ierr);
 
-	/* View solver info */
 
 	ierr = KSPView(ksp,PETSC_VIEWER_STDOUT_WORLD);CHKERRQ(ierr);
 
-	/* Print IterationNumber and display the solution */
 
 	ierr = KSPGetIterationNumber(ksp,&its);CHKERRQ(ierr);
 	ierr = PetscPrintf(PETSC_COMM_WORLD,"\n%D Iterations \n",its);CHKERRQ(ierr);
 
-//	ierr = display(x,b,f,A,M,&appctx);CHKERRQ(ierr);
+	ierr = display(x,b,f,A,M,&appctx);CHKERRQ(ierr);
 
-	/* Free work space. */
 
 	ierr = KSPDestroy(&ksp);CHKERRQ(ierr);
+
+*/
 	ierr = VecDestroy(&x);CHKERRQ(ierr);
 	ierr = VecDestroy(&b);CHKERRQ(ierr);
-	ierr = VecDestroy(&f);CHKERRQ(ierr);
-	ierr = MatDestroy(&StiffnessM);CHKERRQ(ierr);
+//	ierr = VecDestroy(&f);CHKERRQ(ierr);
+//	ierr = MatDestroy(&StiffnessM);CHKERRQ(ierr);
 	ierr = MatDestroy(&MassM);CHKERRQ(ierr);
-	ierr = MatDestroy(&boundaryStiffnessM);CHKERRQ(ierr);
+//	ierr = MatDestroy(&boundaryStiffnessM);CHKERRQ(ierr);
 
 	free_GridData(&data);
 	/* Always call PetscFinalize() before exiting a program. */
 	ierr = PetscFinalize();
 	return ierr;
+
+
 }
