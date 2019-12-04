@@ -1,4 +1,4 @@
-all: ${OBJS} compile
+all: compile1 compile2
 
 PROGNAME1 = ex1
 PROGNAME2 = ex2
@@ -15,12 +15,11 @@ CLEANFILES = ${OBJ} ${PROGNAME1} ${PROGNAME2}
 include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 
-compile:${OBJS}
+compile1:${OBJP1}
 	-${CLINKER} -o ${PROGNAME1} ${OBJP1} ${PETSC_SYS_LIB}
-	-${CLINKER} -o ${PROGNAME2} ${OBJP2} ${PETSC_SYS_LIB}	
 
-%.o:%.c
-	gcc -c -o $@ $(CFLAGS) $<
+compile2:${OBJP2}
+	-${CLINKER} -o ${PROGNAME2} ${OBJP2} ${PETSC_SYS_LIB}	
 
 runex1: 
 	-@${MPIEXEC} -n 1 ./${PROGNAME1}
@@ -35,5 +34,5 @@ help:
 clean ::
 	-${RM} ${CLEANFILES}
 
-.PHONY: all compile runtex1 runex2 help clean
+.PHONY: all compile1 compile2 runex1 runex2 help clean
 

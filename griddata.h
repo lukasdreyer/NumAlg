@@ -27,10 +27,12 @@ typedef struct GridData{
 	unsigned **FEtoDOF;
 }GridData;
 
-int set_boundary_nodes(GridData *data);
-int set_FEtoDOF(GridData* data);
-int set_quadrature(GridData* data);
 int init_GridData(unsigned M,double L,GridData *data);
+
+int init_boundary_nodes(GridData *data);
+int init_FEtoDOF(GridData* data);
+int init_quadrature(GridData* data);
+
 int free_FEtoDOF(GridData *data);
 int free_GridData(GridData *data);
 

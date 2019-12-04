@@ -15,6 +15,7 @@ static char help[]="Solves -laplace(u)=f approximately on a circular-grid.\n\nOp
 
 #include <petscksp.h>
 #include "griddata.h"
+#include "matshell.h"
 
 
 int main(int argc,char **args){
@@ -22,7 +23,7 @@ int main(int argc,char **args){
 	Mat				StiffnessM, MassM, boundaryStiffnessM;			/* stifness and mass matrix */
 	KSP				ksp;			/* linear solver context */
 	PC				pc;			/* preconditioner context */
-	PetscInt			M;			/*Number of elements in one direction*/
+	PetscInt			M=8;			/*Number of elements in one direction*/
 	PetscScalar			L=0.8;
 
 	PetscErrorCode			ierr;
@@ -40,7 +41,7 @@ int main(int argc,char **args){
 
 	/* Initialise Applicationdata */
 
-	ierr = set_GridData(M,L,&data);CHKERRQ(ierr);
+	ierr = init_GridData(M,L,&data);CHKERRQ(ierr);
 
 	/* Create Vectors x,b,f */
 
@@ -66,13 +67,13 @@ int main(int argc,char **args){
 
 	/* Fill Vec f and b=M*f */
 //TODO
-	ierr = assembleVecFct(f,&data);CHKERRQ(ierr);
-	ierr = MatMult(M,f,b);CHKERRQ(ierr);
+//	ierr = assembleVecFct(f,&data);CHKERRQ(ierr);
+	ierr = MatMult(MassM,f,b);CHKERRQ(ierr);
 
 	/* Create a Linear solver (Krylov space) */
 
 	ierr = KSPCreate(PETSC_COMM_WORLD,&ksp);CHKERRQ(ierr);
-	ierr = KSPSetOperators(ksp,A,A);CHKERRQ(ierr);
+	ierr = KSPSetOperators(ksp,boundaryStiffnessM,boundaryStiffnessM);CHKERRQ(ierr);
 
 
 	ierr = KSPSetType(ksp,KSPCG);CHKERRQ(ierr);
@@ -111,7 +112,7 @@ int main(int argc,char **args){
 	ierr = MatDestroy(&MassM);CHKERRQ(ierr);
 	ierr = MatDestroy(&boundaryStiffnessM);CHKERRQ(ierr);
 
-	free_griddata(&data);
+	free_GridData(&data);
 	/* Always call PetscFinalize() before exiting a program. */
 	ierr = PetscFinalize();
 	return ierr;

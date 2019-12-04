@@ -7,9 +7,9 @@ int init_GridData(unsigned M,double L,GridData *data){
 	data->E=5*M*M;
 	data->L=L;
 	data->global_dof=data->E+2*M+1; //5M^2+2M+1
-	set_boundary_nodes(data);//allocates memory
-	set_FEtoDOF(data);//allocates memory
-	set_quadrature(data);
+	init_boundary_nodes(data);//allocates memory
+	init_FEtoDOF(data);//allocates memory
+	init_quadrature(data);
 	return 0;
 }
 
@@ -28,7 +28,7 @@ int free_GridData(GridData *data){
 }
 
 
-int set_FEtoDOF(GridData* data){
+int init_FEtoDOF(GridData* data){
 	if(_DOF2D!=4) return -1;
 
 	unsigned M = data->M;
@@ -88,7 +88,7 @@ int set_FEtoDOF(GridData* data){
 	return 0;
 }
 
-int set_boundary_nodes(GridData *data){
+int init_boundary_nodes(GridData *data){
 	if(_DOF2D!=4) return -1;
 	data->boundary_nodes = malloc(sizeof(unsigned)*4*data->M);//there are 4 quartercircles->4m DOF on boundary
 	for (unsigned i=0;i<4*data->M;i++){
@@ -96,7 +96,7 @@ int set_boundary_nodes(GridData *data){
 	}
 	return 0;
 }
-int set_quadrature(GridData* data){
+int init_quadrature(GridData* data){
 	if(_DOF2D!=4) return -1;
 	data->q_nodes[0]=-sqrt(1./3);
 	data->q_nodes[1]=sqrt(1./3);
