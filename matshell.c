@@ -30,6 +30,11 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 	VecGetArray(y,&outputvector);
 	MatShellGetContext(A,&data);
 
+
+	for(unsigned dof=0;dof<data->global_dof;dof++){
+		outputvector[dof]=0;
+	}
+
 	for(unsigned e=0;e<data->E;e++){
 		local_dof_indices = data->FEtoDOF[e];
 		for(unsigned i=0;i<_DOF1D;i++){
@@ -101,34 +106,48 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 	VecGetArray(y,&outputvector);
 
 	MatShellGetContext(A,&data);
+	for(unsigned dof=0;dof<data->global_dof;dof++){
+		outputvector[dof]=0;
+	}
 
 	for(unsigned e=0;e<data->E;e++){
 		local_dof_indices = data->FEtoDOF[e];
-		for(unsigned i=0;i<_DOF1D;i++){
-			for(unsigned j=0;j<_DOF1D;j++){
-				x_local[i][j]=inputvector[local_dof_indices[i*_DOF1D+j]];//symmetry
+		for(unsigned k=0;k<_DOF1D;k++){
+			for(unsigned l=0;l<_DOF1D;l++){
+				x_local[k][l]=inputvector[local_dof_indices[k*_DOF1D+l]];//symmetry
 			}
 		}
-		for(unsigned q =0; q < _DIM ; q++){
-			for(unsigned  alpha=0;alpha < _QUADRATURE_NODES ;  alpha++){
-				for(unsigned  j=0;j < _DOF1D ;  j++){
-					tensorA1[q][alpha][j]=0;
-					for(unsigned  i=0; i< _DOF1D ;  i++){
-						tensorA1[q][alpha][j]+=TensorVandermonde(q,1,i,alpha,data)*x_local[i][j];
+		for(unsigned p =0; p < _DIM ; p++){
+			for(unsigned  beta=0;beta < _QUADRATURE_NODES ;  beta++){
+				for(unsigned  k=0;k < _DOF1D ;  k++){
+					tensorA1[p][beta][k]=0;
+					for(unsigned  l=0; l< _DOF1D ;  l++){
+						tensorA1[p][beta][k]+=TensorVandermonde(p,1,l,beta,data)*x_local[k][l];
 					}
 				}
 			}
 		}
 
-		for(unsigned  q=0;q < _DIM ; q ++){
+		for(unsigned  p=0;p < _DIM ; p ++){
 			for(unsigned  alpha=0; alpha< _QUADRATURE_NODES ; alpha ++){
 				for(unsigned beta =0; beta < _QUADRATURE_NODES ;  beta++){
-					tensorA2[q][alpha][beta]=0;
-					for(unsigned  j=0;j < _DOF1D ; j ++){
-						tensorA2[q][alpha][beta] += TensorVandermonde(q,0,j,beta,data)*tensorA1[q][alpha][j];
+					tensorA2[p][alpha][beta]=0;
+					for(unsigned  k=0;k < _DOF1D ; k ++){
+						tensorA2[p][alpha][beta] += TensorVandermonde(p,0,k,alpha,data)*tensorA1[p][beta][k];
 					}
 				}
 			}
+		}
+
+		for(int i=0;i<_DIM;i++){
+			for(int j=0;j<_QUADRATURE_NODES;j++){
+				for(int k=0;k<_QUADRATURE_NODES;k++){
+					printf("%f ",tensorA2[i][j][k]);
+				}
+				printf("\n");
+			}
+			printf("\n");
+			printf("\n");
 		}
 
 		for(unsigned  p=0; p<  _DIM;  p++){
@@ -136,7 +155,7 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 				for(unsigned  beta=0; beta< _QUADRATURE_NODES ;  beta++){
 					tensorA3[p][alpha][beta]=0;
 					for(unsigned  q=0; q< _DOF1D ;  q++){
-						tensorA3[p][alpha][beta] += geometryterm(p,q,alpha,beta,data)*tensorA2[q][alpha][beta];
+						tensorA3[p][alpha][beta] += geometryterm(p,q,alpha,beta,e,data)*tensorA2[q][alpha][beta];
 					}
 				}
 			}
@@ -147,7 +166,7 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 				for(unsigned  l=0; l< _DOF1D ;  l++){
 					tensorA4[p][alpha][l]=0;
 					for(unsigned  beta=0; beta< _DOF1D ;  beta++){
-						tensorA4[p][alpha][l] += tensorA3[p][alpha][beta] * TensorVandermonde(p,0,l,beta,data)
+						tensorA4[p][alpha][l] += tensorA3[p][alpha][beta] * TensorVandermonde(p,1,l,beta,data)
 										* determinant_jacobian_transformation(e,data->q_nodes[alpha],data->q_nodes[beta],data)
 													* data->q_weights[alpha]*data->q_weights[beta];
 					}
@@ -160,7 +179,7 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 				for(unsigned  l=0; l< _DOF1D ;  l++){
 					tensorA5[p][k][l]=0;
 					for(unsigned  alpha=0; alpha< _QUADRATURE_NODES ;  alpha++){
-						tensorA5[p][k][l]+=TensorVandermonde(p,1,k,alpha,data)*tensorA4[p][alpha][l];
+						tensorA5[p][k][l]+=TensorVandermonde(p,0,k,alpha,data)*tensorA4[p][alpha][l];
 					}
 				}
 			}
@@ -168,7 +187,6 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 
 		for(unsigned k =0; k< _DOF1D ;  k++){
 			for(unsigned l =0; l< _DOF1D ;  l++){
-				outputvector[local_dof_indices[k*_DOF1D+l]]=0;
 				for(unsigned p =0; p< _DIM ; p ++){
 					outputvector[local_dof_indices[k*_DOF1D+l]] += tensorA5[p][k][l];
 				}
@@ -184,5 +202,7 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 }
 
 PetscErrorCode boundary_mult(Mat A,Vec x, Vec y){
+
+
 	return 0;
 }

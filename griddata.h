@@ -37,6 +37,7 @@ int init_boundary_nodes(GridData *data);
 int init_FEtoDOF(GridData* data);
 int init_quadrature(GridData* data);
 int init_VandermondeM(GridData *data);
+int init_derivativeVandermondeM(GridData *data);
 
 int free_FEtoDOF(GridData *data);
 int free_GridData(GridData *data);

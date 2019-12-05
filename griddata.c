@@ -11,6 +11,8 @@ int init_GridData(unsigned M,double L,GridData *data){
 	init_FEtoDOF(data);//allocates memory
 	init_quadrature(data);
 	init_VandermondeM(data);
+	init_derivativeVandermondeM(data);
+
 	return 0;
 }
 
@@ -36,10 +38,10 @@ int init_VandermondeM(GridData *data){
 	return 0;
 }
 int init_derivativeVandermondeM(GridData *data){
-	data->VandermondeM[0][0]=-1;
-	data->VandermondeM[0][1]=-1;
-	data->VandermondeM[1][0]=1;
-	data->VandermondeM[1][1]=1;
+	data->derivativeVandermondeM[0][0]=-.5;
+	data->derivativeVandermondeM[0][1]=-.5;
+	data->derivativeVandermondeM[1][0]=.5;
+	data->derivativeVandermondeM[1][1]=.5;
 	return 0;
 }
 

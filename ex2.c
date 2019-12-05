@@ -21,11 +21,11 @@ static char help[]="Solves -laplace(u)=f approximately on a circular-grid.\n\nOp
 
 int main(int argc,char **args){
 	Vec				x, b;			/* approx solution, RHS, function values */
-	Mat			MassM;
+	Mat			StiffnessM;
 //	StiffnessM, MassM, boundaryStiffnessM;			/* stifness and mass matrix */
 //	KSP				ksp;				/* linear solver context */
 //	PC				pc;					/* preconditioner context */
-	PetscInt			M=32;			/*Number of elements in one direction*/
+	PetscInt			M=1;			/*Number of elements in one direction*/
 	PetscScalar			L=0.8,norm;
 
 	PetscErrorCode			ierr;
@@ -54,7 +54,7 @@ int main(int argc,char **args){
 	ierr = VecDuplicate(x,&b);CHKERRQ(ierr);
 
 	ierr = VecSet(x,1);CHKERRQ(ierr);
-	ierr = VecSet(b,0);CHKERRQ(ierr);
+	ierr = VecSet(b,1);CHKERRQ(ierr);
 
 	ierr = VecAssemblyBegin(x);CHKERRQ(ierr);
 	ierr = VecAssemblyEnd(x);CHKERRQ(ierr);
@@ -66,22 +66,24 @@ int main(int argc,char **args){
 
 	/* Create Matrices A and M */
 
-	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&MassM);CHKERRQ(ierr);
-//	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&StiffnessM);CHKERRQ(ierr);
+//	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&MassM);CHKERRQ(ierr);
+	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&StiffnessM);CHKERRQ(ierr);
 //	ierr = MatCreateShell(PETSC_COMM_WORLD,data.global_dof,data.global_dof,PETSC_DECIDE,PETSC_DECIDE,&data,&boundaryStiffnessM);CHKERRQ(ierr);
 
 	/*
 	* Fill Matrices A and M
 	*/
 
-	ierr = MatShellSetOperation(MassM,MATOP_MULT,(void(*)(void))mass_mult);CHKERRQ(ierr);
-//	ierr = MatShellSetOperation(StiffnessM,MATOP_MULT,(void(*)(void))stiffness_mult);CHKERRQ(ierr);
+//	ierr = MatShellSetOperation(MassM,MATOP_MULT,(void(*)(void))mass_mult);CHKERRQ(ierr);
+	ierr = MatShellSetOperation(StiffnessM,MATOP_MULT,(void(*)(void))stiffness_mult);CHKERRQ(ierr);
 //	ierr = MatShellSetOperation(boundaryStiffnessM,MATOP_MULT,(void(*)(void))boundary_mult);CHKERRQ(ierr);
 
 	/* Fill Vec f and b=M*f */
 //TODO
 //	ierr = assembleVecFct(f,&data);CHKERRQ(ierr);
-	ierr = MatMult(MassM,x,b);CHKERRQ(ierr);
+//	ierr = MatMult(MassM,x,b);CHKERRQ(ierr);
+	ierr = MatMult(StiffnessM,x,b);CHKERRQ(ierr);
+	VecView(b,	PETSC_VIEWER_STDOUT_SELF);
 	ierr = VecDot(x,b,&norm);CHKERRQ(ierr);
 	printf("error: %.10f,norm: %.10f,sqrt(pi): %.10f, \n", fabs(sqrt(norm)-sqrt(M_PI)),sqrt(norm),sqrt(M_PI));
 
@@ -121,8 +123,8 @@ int main(int argc,char **args){
 	ierr = VecDestroy(&x);CHKERRQ(ierr);
 	ierr = VecDestroy(&b);CHKERRQ(ierr);
 //	ierr = VecDestroy(&f);CHKERRQ(ierr);
-//	ierr = MatDestroy(&StiffnessM);CHKERRQ(ierr);
-	ierr = MatDestroy(&MassM);CHKERRQ(ierr);
+	ierr = MatDestroy(&StiffnessM);CHKERRQ(ierr);
+//	ierr = MatDestroy(&MassM);CHKERRQ(ierr);
 //	ierr = MatDestroy(&boundaryStiffnessM);CHKERRQ(ierr);
 
 	free_GridData(&data);

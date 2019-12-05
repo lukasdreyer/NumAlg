@@ -9,7 +9,7 @@ void project(double *x,double *y, unsigned i, unsigned j, GridData *data);
 void coefficients(double x, double y, double *theta, double *c, double *r,GridData *data);
 void element_transformation(unsigned e,double x, double y,double *tx,double *ty, GridData *data);
 double determinant_jacobian_transformation(unsigned e,double x, double y, GridData *data);
-double geometryterm(unsigned p,unsigned q,unsigned alpha,unsigned beta,GridData *data);
+double geometryterm(unsigned p,unsigned q,unsigned alpha,unsigned beta,unsigned e,GridData *data);
 
 
 #endif

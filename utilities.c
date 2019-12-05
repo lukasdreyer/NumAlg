@@ -19,9 +19,23 @@ void print_int_mat(unsigned **mat,unsigned n,unsigned m){
 		printf("\n");
 	}
 }
+void print_3tensor(double ***mat,unsigned n,unsigned m,unsigned l){
+	for(int i=0;i<n;i++){
+		for(int j=0;j<m;j++){
+			for(int k=0;k<l;k++){
+				printf("%f ",mat[i][j][k]);
+			}
+			printf("\n");
+		}
+		printf("\n");
+		printf("\n");
+	}
+}
+
+
 double TensorVandermonde(unsigned p,unsigned p_ref,unsigned i, unsigned alpha, GridData *data){
-	if(p==p_ref)return data->VandermondeM[i][alpha];
-	return data->derivativeVandermondeM[i][alpha];
+	if(p==p_ref)return data->derivativeVandermondeM[i][alpha];
+	return data->VandermondeM[i][alpha];
 }
 
 double norm_l2(FunctionPointer f,GridData *data){

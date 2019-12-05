@@ -88,7 +88,26 @@ double determinant_jacobian_transformation(unsigned e,double x, double y, GridDa
 	return r * ((1-c)/2) * (M_PI/4) / (M*M);
 }
 
-double geometryterm(unsigned p,unsigned q,unsigned alpha,unsigned beta,GridData *data){
-	//TODO
-	return 0;
+double geometryterm(unsigned p,unsigned q,unsigned alpha,unsigned beta,unsigned e,GridData *data){
+	double c,r,theta,lambda,ret_value;
+	unsigned i,j,s;
+	double determinant;
+
+	indices(e,&i,&j,&s,data);
+
+
+	if(s==0){
+		if((p+q) %2 == 0) return 4 * data->M *data->M* data->L *data->L;
+		else return 0;
+	}
+	coefficients(data->q_nodes[alpha],data->q_nodes[beta],&theta,&c,&r,data);
+
+	lambda = data->L * M_PI *(1-data->q_nodes[alpha])*sin(theta)/(16*cos(theta)*cos(theta));
+
+	determinant = determinant_jacobian_transformation(e,data->q_nodes[alpha],data->q_nodes[beta],data);
+	if(p==1&&q==1)ret_value = (1-c)*(1-c)/4;
+	if(p==0&&q==0)ret_value = lambda * lambda + M_PI * M_PI * r * r / 16 - M_PI * r *cos(theta)*sin(theta);
+	if(p*q==0 && p+q==1) ret_value = (1-c)/2*(-lambda+M_PI/2 *r*cos(theta)*sin(theta));
+
+	return ret_value/(determinant*determinant)*data->M*data->M;
 }
