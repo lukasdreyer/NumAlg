@@ -25,12 +25,14 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 	}
 
 	for(unsigned e=0;e<data->E;e++){
+
+//		printf("element: %i",e);
 		for(unsigned i=0;i<_DOF1D;i++){
 			for(unsigned j=0;j<_DOF1D;j++){
 				x_local[i][j]=inputvector[data->FEtoDOF[e][i*_DOF1D+j]];//symmetry
 			}
 		}
-
+//		printf(", 1");
 		for(unsigned k = 0;k < _DOF1D;k++){
 			for(unsigned beta = 0;beta < _QUADRATURE_NODES;beta++){
 				tensorM1[k][beta] =0;
@@ -39,6 +41,7 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 				}
 			}
 		}
+//		printf(", 2");
 
 		for(unsigned alpha = 0;alpha < _QUADRATURE_NODES;alpha++){
 			for(unsigned beta = 0;beta < _QUADRATURE_NODES;beta++){
@@ -48,26 +51,31 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 				}
 			}
 		}
+//		printf(", 3");
 
 		for(unsigned alpha = 0;alpha < _QUADRATURE_NODES;alpha++){
 			for(unsigned j = 0;j < _DOF1D;j++){
 				tensorM3[alpha][j] =0;
 				for(unsigned beta = 0; beta < _QUADRATURE_NODES; beta++){
+//					printf(",a: %i,b: %i ",alpha,beta);
+
 					tensorM3[alpha][j] += data->VandermondeM[beta][j] * tensorM2[alpha][beta]
-											* determinant_jacobian_transformation(e,data->q_nodes[alpha],data->q_nodes[beta],data)
-											* data->q_weights[alpha]*data->q_weights[beta];
+											* data->q_weights[alpha]*data->q_weights[beta]
+											* data->det_DJe[alpha][beta][e];
 				}
 			}
 		}
+//		printf(", 4");
 
 		for(unsigned i = 0;i < _DOF1D;i++){
 			for(unsigned j = 0;j < _DOF1D;j++){
 				for(unsigned alpha = 0; alpha < _QUADRATURE_NODES; alpha++){
-					outputvector[data->FEtoDOF[e][i*_DOF1D+j]] +=data->VandermondeM[alpha][i]*tensorM3[alpha][j];
+					outputvector[data->FEtoDOF[e][i*_DOF1D+j]] += data->VandermondeM[alpha][i] * tensorM3[alpha][j];
+//					outputvector[0] += data->VandermondeM[alpha][i] * tensorM3[alpha][j];
 				}
 			}
 		}
-
+//		printf(", 5\n");
 	}//element loop
 	VecRestoreArrayRead(x,&inputvector);
 	VecRestoreArray(y,&outputvector);

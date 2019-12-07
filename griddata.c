@@ -12,26 +12,33 @@ int init_GridData(unsigned M,double L,GridData *data){
 	data->E=5*M*M;
 	data->L=L;
 	data->global_dof=data->E+2*M+1; //5M^2+2M+1
-	data->global_dof=4*M;
+	data->boundary_dof=4*M;
 
-
+	printf("init 0 \n");
 	//1 dimensional data
 	init_quadrature(data);
 	init_VandermondeM(data);
 	init_derivativeVandermondeM(data);
+	printf("init 1 \n");
 
 	//allocate memory and fill matrices/tensors
 	init_boundary_nodes(data);
 	init_FEtoDOF(data);
-	init_GridData_Mat_Vec(data);
+	printf("init 2 \n");
+
 	init_D(data);
+	printf("init 3 \n");
 	init_detDJe(data);
+	printf("init 4 \n");
 	init_Gepq(data);
+	printf("init 5 \n");
+
+	init_GridData_Mat_Vec(data);
+
 	return ierr;
 }
 int free_GridData(GridData *data){
 	PetscErrorCode ierr=0;
-
 	free_boundary_nodes(data);
 	free_FEtoDOF(data);
 	free_GridData_Mat_Vec(data);
@@ -61,6 +68,12 @@ int free_GridData_Mat_Vec(GridData *data){
 	return ierr;
 }
 int free_D(GridData *data){
+	for(unsigned i=0;i<_DIM;i++){
+		free(data->DQ[i]);
+		free(data->DP[i]);
+	}
+	free(data->DQ);
+	free(data->DP);
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
 			for(unsigned s=0;s<5;s++){
@@ -178,18 +191,19 @@ int init_FEtoDOF(GridData* data){
 int init_GridData_Mat_Vec(GridData *data){
 	PetscErrorCode ierr=0;
 
-	ierr = VecCreate(PETSC_COMM_WORLD,&(data->f));CHKERRQ(ierr);
-	ierr = VecSetSizes(data->f,PETSC_DECIDE,data->global_dof);CHKERRQ(ierr);
-	ierr = VecSetFromOptions(data->f);
+	ierr = VecCreateSeq(PETSC_COMM_WORLD,data->global_dof,&(data->f));CHKERRQ(ierr);
+//	ierr = VecSetFromOptions(data->f);
 	ierr = VecDuplicate(data->f,&(data->b));
+//	ierr = VecSetFromOptions(data->b);
+
 
 	ierr = VecSet(data->f,1);CHKERRQ(ierr);
-	ierr = VecAssemblyBegin(data->f);CHKERRQ(ierr);
-	ierr = VecAssemblyEnd(data->f);CHKERRQ(ierr);
+//	ierr = VecAssemblyBegin(data->f);CHKERRQ(ierr);
+//	ierr = VecAssemblyEnd(data->f);CHKERRQ(ierr);
 
-	ierr = VecSet(data->b,0);CHKERRQ(ierr);
-	ierr = VecAssemblyBegin(data->b);CHKERRQ(ierr);
-	ierr = VecAssemblyEnd(data->b);CHKERRQ(ierr);
+//	ierr = VecSet(data->b,0);CHKERRQ(ierr);
+//	ierr = VecAssemblyBegin(data->b);CHKERRQ(ierr);
+//	ierr = VecAssemblyEnd(data->b);CHKERRQ(ierr);
 
 	ierr = MatCreateShell(PETSC_COMM_WORLD,data->global_dof,data->global_dof,
 			PETSC_DECIDE,PETSC_DECIDE,data,&data->MassM);CHKERRQ(ierr);
@@ -202,9 +216,9 @@ int init_GridData_Mat_Vec(GridData *data){
 	ierr = MatShellSetOperation(data->StiffnessM,MATOP_MULT,(void(*)(void))stiffness_mult);CHKERRQ(ierr);
 	ierr = MatShellSetOperation(data->boundaryStiffnessM,MATOP_MULT,(void(*)(void))boundary_mult);CHKERRQ(ierr);
 
-//	ierr = MatMult(data->MassM,data->f,data->b);CHKERRQ(ierr);
+	ierr = MatMult(data->MassM,data->f,data->b);CHKERRQ(ierr);
 //	ierr = MatMult(data->StiffnessM,data->f,data->b);CHKERRQ(ierr);
-	VecView(data->b,PETSC_VIEWER_STDOUT_WORLD);
+//	VecView(data->b,PETSC_VIEWER_STDOUT_WORLD);
 
 	return ierr;
 }
@@ -269,14 +283,20 @@ int init_Gepq(GridData *data){
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
 			data->Gepq[alpha][beta]=malloc(sizeof(double**)*data->E);
+			assert(data->Gepq[alpha][beta]!=NULL);
 			for(unsigned e=0;e<data->E;e++){
+//				printf("1: a %i b %i %i\n",alpha,beta,e);
 				data->Gepq[alpha][beta][e]=malloc(sizeof(double*)*_DIM);
+				assert(data->Gepq[alpha][beta][e]!=NULL);
 				for(unsigned p=0;p<_DIM;p++){
 					data->Gepq[alpha][beta][e][p]=malloc(sizeof(double)*_DIM);
+					assert(data->Gepq[alpha][beta][e][p]!=NULL);
 				}
 			}
 		}
 	}
+
+	printf("done\n");
 
 	double** DFDP;
 	double** DJ;
@@ -298,14 +318,35 @@ int init_Gepq(GridData *data){
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
 			for(unsigned e=1;e<data->E;e++){
-				indices(e,&s_idx,&i_idx,&j_idx,data);
+				if(e==29){
+					printf("e ist 29\n");
+				}
+//				printf("2: a %i b %i %i",alpha,beta,e);
+				indices(e,&i_idx,&j_idx,&s_idx,data);
+//				printf(" - 1");
 				MatMatMult2x2(data->DF[s_idx][alpha][beta],data->DP,DFDP);
+//				printf(" - 2");
 				MatMatMult2x2(data->DQ,DFDP,DJ);
+//				printf(" - 3");
 				invertMat2x2(DJ,DJ_inv);
+//				printf(" - 4");
 				transposeMat2x2(DJ_inv,DJ_inv_t);
+//				printf(" - 5");
 				MatMatMult2x2(DJ_inv,DJ_inv_t,data->Gepq[alpha][beta][e]);//E x Q_N x Q_N x DIM x DIM
+//				printf(" - 6\n");
 			}
 		}
 	}
+
+	for(unsigned i=0;i<_DIM;i++){
+		free(DFDP[i]);
+		free(DJ[i]);
+		free(DJ_inv[i]);
+		free(DJ_inv_t[i]);
+	}
+	free(DFDP);
+	free(DJ);
+	free(DJ_inv);
+	free(DJ_inv_t);
 	return 0;
 }

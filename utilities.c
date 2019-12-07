@@ -32,3 +32,6 @@ void print_3tensor(double ***mat,unsigned n,unsigned m,unsigned l){
 		printf("\n");
 	}
 }
+void assert(int a){
+	if(!a)printf("allocation error\n");
+}

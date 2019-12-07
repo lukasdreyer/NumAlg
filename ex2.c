@@ -25,8 +25,8 @@ int main(int argc,char **args){
 	KSP				ksp;				/* linear solver context */
 	PC				pc;					/* preconditioner context */
 	//TODO: add als console input
-	PetscInt			M=2; 			/*Number of elements in one direction*/
-	PetscScalar			L=0.8,norm;
+	PetscInt			M=1000; 			/*Number of elements in one direction*/
+	PetscScalar			L=0.8,norm=0;
 
 	PetscErrorCode		ierr;
 	PetscInt			its;
@@ -43,14 +43,26 @@ int main(int argc,char **args){
 
 	/* Initialise Applicationdata */
 
+
 	ierr = init_GridData(M,L,&data);CHKERRQ(ierr);
+
 
 	ierr = VecCreate(PETSC_COMM_WORLD,&x);CHKERRQ(ierr);
 	ierr = VecSetSizes(x,PETSC_DECIDE,data.global_dof);CHKERRQ(ierr);
 	ierr = VecSetFromOptions(x);
 
+
+//	VecView(data.b,PETSC_VIEWER_STDOUT_WORLD);
+//	VecView(data.f,PETSC_VIEWER_STDOUT_WORLD);
+
 	ierr = VecDot(data.b,data.f,&norm);CHKERRQ(ierr);
 	printf("error: %.10f,norm: %.10f,pi: %.10f, \n", fabs(norm-M_PI),norm,M_PI);
+
+	ierr = VecDestroy(&x);CHKERRQ(ierr);
+	free_GridData(&data);
+	ierr = PetscFinalize();
+	return ierr;
+
 
 	/* Create a Linear solver (Krylov space) */
 

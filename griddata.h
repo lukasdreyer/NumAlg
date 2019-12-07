@@ -30,7 +30,7 @@ typedef struct GridData{
 	unsigned *boundary_nodes;
 	unsigned **FEtoDOF;
 
-	double* det_DJe[_QUADRATURE_NODES][_QUADRATURE_NODES];//
+	double* det_DJe[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E]
 	double*** Gepq[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E][_DIM][_DIM]
 
 	Mat	StiffnessM, MassM, boundaryStiffnessM;

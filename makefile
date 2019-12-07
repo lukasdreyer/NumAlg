@@ -21,6 +21,9 @@ compile1:${OBJP1}
 compile2:${OBJP2}
 	-${CLINKER} -o ${PROGNAME2} ${OBJP2} ${PETSC_SYS_LIB}	
 
+debug2:${OBJP2}
+	-${CLINKER} -g -o ${PROGNAME2} ${OBJP2} ${PETSC_SYS_LIB}	
+
 runex1: 
 	-@${MPIEXEC} -n 1 ./${PROGNAME1}
 

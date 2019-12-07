@@ -10,6 +10,6 @@ double one(double a, double b);
 
 void print_int_mat(unsigned **mat,unsigned n,unsigned m);
 void print_3tensor(double ***mat,unsigned n,unsigned m,unsigned l);
-
+void assert(int a);
 
 #endif
