@@ -5,6 +5,7 @@
 #include "matshell.h"
 #include "utilities.h"
 #include "transformation.h"
+#include "mat2x2.h"
 
 int init_GridData(unsigned M,double L,GridData *data){
 	PetscErrorCode ierr=0;
@@ -14,27 +15,30 @@ int init_GridData(unsigned M,double L,GridData *data){
 	data->global_dof=data->E+2*M+1; //5M^2+2M+1
 	data->boundary_dof=4*M;
 
-	printf("init 0 \n");
+	printf("fill 1dim-quadrature information \n");
 	//1 dimensional data
 	init_quadrature(data);
 	init_VandermondeM(data);
 	init_derivativeVandermondeM(data);
-	printf("init 1 \n");
 
+	printf("allocate and fill boundary and connectivity information 1 \n");
 	//allocate memory and fill matrices/tensors
 	init_boundary_nodes(data);
 	init_FEtoDOF(data);
-	printf("init 2 \n");
 
+	printf("init 2 \n");
 	init_D(data);
+
 	printf("init 3 \n");
 	init_detDJe(data);
+
 	printf("init 4 \n");
 	init_Gepq(data);
-	printf("init 5 \n");
 
+	printf("init 5 \n");
 	init_GridData_Mat_Vec(data);
 
+	printf("initialisation ready \n");
 	return ierr;
 }
 int free_GridData(GridData *data){
@@ -68,20 +72,12 @@ int free_GridData_Mat_Vec(GridData *data){
 	return ierr;
 }
 int free_D(GridData *data){
-	for(unsigned i=0;i<_DIM;i++){
-		free(data->DQ[i]);
-		free(data->DP[i]);
-	}
-	free(data->DQ);
-	free(data->DP);
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
-			for(unsigned s=0;s<5;s++){
-				for(unsigned i=0;i<_DIM;i++){
-					free(data->DF[s][alpha][beta][i]);
-				}
-				free(data->DF[s][alpha][beta]);
+			for(unsigned e=0;e<data->E;e++){
+				free_Mat2x2(data->DJ[alpha][beta][e]);
 			}
+			free(data->DJ[alpha][beta]);
 		}
 	}
 	return 0;
@@ -98,10 +94,7 @@ int free_Gepq(GridData *data){
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
 			for(unsigned e=0;e<data->E;e++){
-				for(unsigned p=0;p<_DIM;p++){
-					free(data->Gepq[alpha][beta][e][p]);
-				}
-				free(data->Gepq[alpha][beta][e]);
+				free_Mat2x2(data->Gepq[alpha][beta][e]);
 			}
 			free(data->Gepq[alpha][beta]);
 		}
@@ -135,9 +128,12 @@ int init_derivativeVandermondeM(GridData *data){
 
 int init_boundary_nodes(GridData *data){
 	if(_DOF2D!=4) return -1;
-	data->boundary_nodes = malloc(sizeof(unsigned)*data->boundary_dof);
+	data->boundary_nodes = malloc(sizeof(int)*data->boundary_dof);
+	data->boundary_values = malloc(sizeof(double)*data->boundary_dof);
 	for (unsigned i=0;i<data->boundary_dof;i++){
 		data->boundary_nodes[i]=data->M*(data->M+3+i);
+		//TODO:Input boundary function
+		data->boundary_values[i]=0;
 	}
 	return 0;
 }
@@ -192,18 +188,8 @@ int init_GridData_Mat_Vec(GridData *data){
 	PetscErrorCode ierr=0;
 
 	ierr = VecCreateSeq(PETSC_COMM_WORLD,data->global_dof,&(data->f));CHKERRQ(ierr);
-//	ierr = VecSetFromOptions(data->f);
 	ierr = VecDuplicate(data->f,&(data->b));
-//	ierr = VecSetFromOptions(data->b);
-
-
 	ierr = VecSet(data->f,1);CHKERRQ(ierr);
-//	ierr = VecAssemblyBegin(data->f);CHKERRQ(ierr);
-//	ierr = VecAssemblyEnd(data->f);CHKERRQ(ierr);
-
-//	ierr = VecSet(data->b,0);CHKERRQ(ierr);
-//	ierr = VecAssemblyBegin(data->b);CHKERRQ(ierr);
-//	ierr = VecAssemblyEnd(data->b);CHKERRQ(ierr);
 
 	ierr = MatCreateShell(PETSC_COMM_WORLD,data->global_dof,data->global_dof,
 			PETSC_DECIDE,PETSC_DECIDE,data,&data->MassM);CHKERRQ(ierr);
@@ -215,65 +201,85 @@ int init_GridData_Mat_Vec(GridData *data){
 	ierr = MatShellSetOperation(data->MassM,MATOP_MULT,(void(*)(void))mass_mult);CHKERRQ(ierr);
 	ierr = MatShellSetOperation(data->StiffnessM,MATOP_MULT,(void(*)(void))stiffness_mult);CHKERRQ(ierr);
 	ierr = MatShellSetOperation(data->boundaryStiffnessM,MATOP_MULT,(void(*)(void))boundary_mult);CHKERRQ(ierr);
-
-	ierr = MatMult(data->MassM,data->f,data->b);CHKERRQ(ierr);
-//	ierr = MatMult(data->StiffnessM,data->f,data->b);CHKERRQ(ierr);
-//	VecView(data->b,PETSC_VIEWER_STDOUT_WORLD);
-
 	return ierr;
 }
 int init_D(GridData *data){
-	double x00,x01,x10,x11;
-	double c,r,theta,lambda;
+	double c,r,theta;
 
-	data->DQ=malloc(sizeof(double*)*_DIM);
-	data->DP=malloc(sizeof(double*)*_DIM);
-	for(unsigned i=0;i<_DIM;i++){
-		data->DQ[i]=malloc(sizeof(double)*_DIM);
-		data->DP[i]=malloc(sizeof(double)*_DIM);
-	}
+	unsigned M_sq=data->M*data->M;
+	unsigned ij_idx;
+	double **DP;
+	double **DQ1;
+	double **DC;
+	double **DR;
+	double **DA;
+	double **DADP;
+	double **DRDADP;
+
+	double x,y;
+
+	alloc_Mat2x2(&DP);
+	alloc_Mat2x2(&DADP);
+	alloc_Mat2x2(&DRDADP);
+	alloc_Mat2x2(&DC);
+	alloc_Mat2x2(&DR);
+	alloc_Mat2x2(&DA);
+	alloc_Mat2x2(&DQ1);
+
+	fill_Mat2x2(DP,1./data->M,0,0,1./data->M);
+	fill_Mat2x2(DQ1,0,1,-1,1);
 
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
-			for(unsigned s=0;s<5;s++){
-				data->DF[s][alpha][beta] = malloc(sizeof(double*)*_DIM);
-				for(unsigned i=0;i<_DIM;i++){
-					data->DF[s][alpha][beta][i]=malloc(sizeof(double)*_DIM);
+			data->DJ[alpha][beta]=malloc(sizeof(double**)*data->E);
+			for(unsigned e=0;e<data->E;e++){
+				alloc_Mat2x2(&data->DJ[alpha][beta][e]);
+			}
+			for(unsigned e=0;e<data->E/5;e++){//all elements in the center square
+				fill_Mat2x2(data->DJ[alpha][beta][e], data->L/(2*data->M), 0 , 0, data->L/(2*data->M));
+			}
+			//TODO:CHECK
+			for(unsigned i=0;i<data->M;i++){
+				for(unsigned j=0;j<data->M;j++){
+					x=data->q_nodes[alpha];
+					y=data->q_nodes[beta];
+
+					project(&x,&y,i,j,data);
+
+					coefficients(x,y,&theta,&c,&r,data);
+					fill_Mat2x2(DA,1, 0 , 0, M_PI/4);
+					fill_Mat2x2(DC,cos(theta), - r*sin(theta) , sin(theta), r*cos(theta));
+					fill_Mat2x2(DR, (1-c)/2 ,(1-x)*data->L*sin(theta)/(4*cos(theta)*cos(theta)) , 0, 1);
+
+					//DJ1=DC DR DA DP
+					MatMult_Mat2x2(DA,DP,DADP);
+					MatMult_Mat2x2(DR,DADP,DRDADP);
+					ij_idx=data->M*i+j;
+					MatMult_Mat2x2(DC,DRDADP,data->DJ[alpha][beta][M_sq+ij_idx]);
+					MatMult_Mat2x2(DQ1,data->DJ[alpha][beta][M_sq+ij_idx],data->DJ[alpha][beta][2*M_sq+ij_idx]);
+					MatMult_Mat2x2(DQ1,data->DJ[alpha][beta][2*M_sq+ij_idx],data->DJ[alpha][beta][3*M_sq+ij_idx]);
+					MatMult_Mat2x2(DQ1,data->DJ[alpha][beta][3*M_sq+ij_idx],data->DJ[alpha][beta][4*M_sq+ij_idx]);
 				}
 			}
-
-			x00=data->L/2;
-			x10=0;
-			x01=0;
-			x11=data->L/2;
-
-			fill_Mat2x2(data->DF[0][alpha][beta], x00, x01, x10, x11);
-
-			coefficients(data->q_nodes[alpha],data->q_nodes[beta],&theta,&c,&r,data);
-			lambda = data->L*M_PI*(1-data->q_nodes[alpha])*sin(theta)/(16*cos(theta)*cos(theta));
-
-			//TODO check F1 values
-			x00=(1-c)/2*cos(theta);
-			x01=lambda * cos(theta)- M_PI/4*r*sin(theta);
-			x10=(1-c)/2*sin(theta);
-			x11=lambda * sin(theta)- M_PI/4*r*cos(theta);
-
-			fill_Mat2x2(data->DF[1][alpha][beta], x00, x01, x10, x11);
-
-			MatMatMult2x2(data->DQ,data->DF[1][alpha][beta],data->DF[2][alpha][beta]);
-			MatMatMult2x2(data->DQ,data->DF[2][alpha][beta],data->DF[3][alpha][beta]);
-			MatMatMult2x2(data->DQ,data->DF[3][alpha][beta],data->DF[4][alpha][beta]);
 		}
 	}
+	free_Mat2x2(DP);
+	free_Mat2x2(DADP);
+	free_Mat2x2(DRDADP);
+	free_Mat2x2(DA);
+	free_Mat2x2(DC);
+	free_Mat2x2(DQ1);
 	return 0;
 }
 int init_detDJe(GridData *data){
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
+
 			data->det_DJe[alpha][beta] = malloc(sizeof(double) * data->E);
+
+			//TODO: Check if det F == determinant_jacobian_transformation
 			for(unsigned e=0;e<data->E;e++){
-				data->det_DJe[alpha][beta][e] = determinant_jacobian_transformation
-						(e,data->q_nodes[alpha],data->q_nodes[beta],data);
+				data->det_DJe[alpha][beta][e] = determinant_Mat2x2(data->DJ[alpha][beta][e]);
 			}
 		}
 	}
@@ -285,68 +291,31 @@ int init_Gepq(GridData *data){
 			data->Gepq[alpha][beta]=malloc(sizeof(double**)*data->E);
 			assert(data->Gepq[alpha][beta]!=NULL);
 			for(unsigned e=0;e<data->E;e++){
-//				printf("1: a %i b %i %i\n",alpha,beta,e);
-				data->Gepq[alpha][beta][e]=malloc(sizeof(double*)*_DIM);
-				assert(data->Gepq[alpha][beta][e]!=NULL);
-				for(unsigned p=0;p<_DIM;p++){
-					data->Gepq[alpha][beta][e][p]=malloc(sizeof(double)*_DIM);
-					assert(data->Gepq[alpha][beta][e][p]!=NULL);
-				}
+				alloc_Mat2x2(&data->Gepq[alpha][beta][e]);
 			}
 		}
 	}
 
-	printf("done\n");
-
-	double** DFDP;
-	double** DJ;
 	double** DJ_inv;
 	double** DJ_inv_t;
 
-	DFDP=malloc(sizeof(double*)*_DIM);
-	DJ=malloc(sizeof(double*)*_DIM);
-	DJ_inv=malloc(sizeof(double*)*_DIM);
-	DJ_inv_t=malloc(sizeof(double*)*_DIM);
-	for(unsigned i=0;i<_DIM;i++){
-		DFDP[i]=malloc(sizeof(double)*_DIM);
-		DJ[i]=malloc(sizeof(double)*_DIM);
-		DJ_inv[i]=malloc(sizeof(double)*_DIM);
-		DJ_inv_t[i]=malloc(sizeof(double)*_DIM);
-	}
-	unsigned s_idx,i_idx,j_idx;
+	alloc_Mat2x2(&DJ_inv);
+	alloc_Mat2x2(&DJ_inv_t);
 
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
 			for(unsigned e=1;e<data->E;e++){
-				if(e==29){
-					printf("e ist 29\n");
-				}
-//				printf("2: a %i b %i %i",alpha,beta,e);
-				indices(e,&i_idx,&j_idx,&s_idx,data);
-//				printf(" - 1");
-				MatMatMult2x2(data->DF[s_idx][alpha][beta],data->DP,DFDP);
-//				printf(" - 2");
-				MatMatMult2x2(data->DQ,DFDP,DJ);
-//				printf(" - 3");
-				invertMat2x2(DJ,DJ_inv);
-//				printf(" - 4");
-				transposeMat2x2(DJ_inv,DJ_inv_t);
-//				printf(" - 5");
-				MatMatMult2x2(DJ_inv,DJ_inv_t,data->Gepq[alpha][beta][e]);//E x Q_N x Q_N x DIM x DIM
-//				printf(" - 6\n");
+				//TODO:CHECK
+
+				invert_Mat2x2(data->DJ[alpha][beta][e],DJ_inv);
+
+				transpose_Mat2x2(DJ_inv,DJ_inv_t);
+
+				MatMult_Mat2x2(DJ_inv,DJ_inv_t,data->Gepq[alpha][beta][e]);//E x Q_N x Q_N x DIM x DIM
 			}
 		}
 	}
-
-	for(unsigned i=0;i<_DIM;i++){
-		free(DFDP[i]);
-		free(DJ[i]);
-		free(DJ_inv[i]);
-		free(DJ_inv_t[i]);
-	}
-	free(DFDP);
-	free(DJ);
-	free(DJ_inv);
-	free(DJ_inv_t);
+	free_Mat2x2(DJ_inv);
+	free_Mat2x2(DJ_inv_t);
 	return 0;
 }

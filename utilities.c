@@ -19,11 +19,21 @@ void print_int_mat(unsigned **mat,unsigned n,unsigned m){
 		}
 		printf("\n");
 	}
+	printf("\n");
 }
-void print_3tensor(double ***mat,unsigned n,unsigned m,unsigned l){
+void print_double_mat(double **mat,unsigned n,unsigned m){
 	for(int i=0;i<n;i++){
 		for(int j=0;j<m;j++){
-			for(int k=0;k<l;k++){
+			printf("%f ",mat[i][j]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+void print_3tensor2(double mat[2][2][2]){
+	for(int i=0;i<2;i++){
+		for(int j=0;j<2;j++){
+			for(int k=0;k<2;k++){
 				printf("%f ",mat[i][j][k]);
 			}
 			printf("\n");

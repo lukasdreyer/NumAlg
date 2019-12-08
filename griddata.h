@@ -23,13 +23,12 @@ typedef struct GridData{
 	double VandermondeM [_QUADRATURE_NODES][_DOF1D];
 	double derivativeVandermondeM [_QUADRATURE_NODES][_DOF1D];
 
-	double** DF[5][_QUADRATURE_NODES][_QUADRATURE_NODES];
-	double** DP;
-	double** DQ;
+	int *boundary_nodes;
+	double *boundary_values;
 
-	unsigned *boundary_nodes;
 	unsigned **FEtoDOF;
 
+	double*** DJ[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E]
 	double* det_DJe[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E]
 	double*** Gepq[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E][_DIM][_DIM]
 
