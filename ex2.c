@@ -47,13 +47,6 @@ int main(int argc,char **args){
 	ierr = init_GridData(M,L,&data);CHKERRQ(ierr);
 
 
-
-/*	ierr = VecCreate(PETSC_COMM_WORLD,&x);CHKERRQ(ierr);
-	ierr = VecSetSizes(x,PETSC_DECIDE,data.global_dof);CHKERRQ(ierr);
-	ierr = VecSetFromOptions(x);
-*/
-
-//	VecView(data.f,PETSC_VIEWER_STDOUT_WORLD);
 	printf("MatMult VecDot\n");
 	ierr = MatMult(data.MassM,data.f,data.b);CHKERRQ(ierr);
 //	VecView(data.b,PETSC_VIEWER_STDOUT_WORLD);
@@ -66,7 +59,7 @@ int main(int argc,char **args){
 	ierr = VecDuplicate(data.f,&g);
 	ierr = VecDuplicate(data.f,&b0);
 	ierr = VecSet(g,0);CHKERRQ(ierr);
-//	ierr = VecSetValues(g,data.boundary_dof,data.boundary_nodes,data.boundary_values,INSERT_VALUES);
+	ierr = VecSetValues(g,data.boundary_dof,data.boundary_nodes,data.boundary_values,INSERT_VALUES);
 	ierr = VecAssemblyBegin(g);
 	ierr = VecAssemblyEnd(g);
 	MatMult(data.StiffnessM,g,b0);
@@ -76,6 +69,7 @@ int main(int argc,char **args){
 	ierr = VecSetValues(data.b,data.boundary_dof,data.boundary_nodes,data.boundary_values,INSERT_VALUES);
 	ierr = VecAssemblyBegin(data.b);
 	ierr = VecAssemblyEnd(data.b);
+
 	VecView(data.b,PETSC_VIEWER_STDOUT_WORLD);
 
 
@@ -89,7 +83,7 @@ int main(int argc,char **args){
 	ierr = KSPGetPC(ksp,&pc);CHKERRQ(ierr);
 	ierr = PCSetType(pc,PCNONE);CHKERRQ(ierr);//PCAMG
 
-	ierr = KSPSetTolerances(ksp,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT,10000);CHKERRQ(ierr);
+	ierr = KSPSetTolerances(ksp,PETSC_DEFAULT,PETSC_DEFAULT,PETSC_DEFAULT,1000);CHKERRQ(ierr);
 	ierr = KSPSetFromOptions(ksp);CHKERRQ(ierr);
 
 	ierr = KSPSolve(ksp,data.b,x);CHKERRQ(ierr);

@@ -25,10 +25,10 @@ typedef struct GridData{
 
 	int *boundary_nodes;
 	double *boundary_values;
-
 	unsigned **FEtoDOF;
 
-	double*** DJ[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E]
+
+	double*** DJ[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E][_DIM][_DIM]
 	double* det_DJe[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E]
 	double*** Gepq[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E][_DIM][_DIM]
 

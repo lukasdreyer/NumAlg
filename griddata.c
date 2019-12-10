@@ -133,7 +133,7 @@ int init_boundary_nodes(GridData *data){
 	for (unsigned i=0;i<data->boundary_dof;i++){
 		data->boundary_nodes[i]=data->M*(data->M+3+i);
 		//TODO:Input boundary function
-		data->boundary_values[i]=0;
+		data->boundary_values[i]=1;// TODO:eigene funktion
 	}
 	return 0;
 }
@@ -228,6 +228,7 @@ int init_D(GridData *data){
 
 	fill_Mat2x2(DP,1./data->M,0,0,1./data->M);
 	fill_Mat2x2(DQ1,0,1,-1,1);
+	fill_Mat2x2(DA,1, 0 , 0, M_PI/4);
 
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
@@ -247,9 +248,9 @@ int init_D(GridData *data){
 					project(&x,&y,i,j,data);
 
 					coefficients(x,y,&theta,&c,&r,data);
-					fill_Mat2x2(DA,1, 0 , 0, M_PI/4);
-					fill_Mat2x2(DC,cos(theta), - r*sin(theta) , sin(theta), r*cos(theta));
+
 					fill_Mat2x2(DR, (1-c)/2 ,(1-x)*data->L*sin(theta)/(4*cos(theta)*cos(theta)) , 0, 1);
+					fill_Mat2x2(DC,cos(theta), - r*sin(theta) , sin(theta), r*cos(theta));
 
 					//DJ1=DC DR DA DP
 					MatMult_Mat2x2(DA,DP,DADP);
@@ -311,7 +312,8 @@ int init_Gepq(GridData *data){
 
 				transpose_Mat2x2(DJ_inv,DJ_inv_t);
 
-				MatMult_Mat2x2(DJ_inv,DJ_inv_t,data->Gepq[alpha][beta][e]);//E x Q_N x Q_N x DIM x DIM
+				//TODO:CHECK
+				MatMult_Mat2x2(DJ_inv,DJ_inv_t,data->Gepq[alpha][beta][e]);//Q_N x Q_N x E x DIM x DIM
 			}
 		}
 	}

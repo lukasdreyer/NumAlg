@@ -99,7 +99,9 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 
 	unsigned s_idx,i_idx,j_idx;//e=(i,j,s), where s determines which coarse element, i is row of refined
 
-	for(unsigned e=0;e<data->E;e++){
+//	for(unsigned e=0;e<data->E;e++){
+//	for(unsigned e=0;e<data->E/5;e++){
+	for(unsigned e=data->E/5;e<data->E;e++){
 		indices(e,&i_idx,&j_idx,&s_idx,data);
 
 		for(unsigned k=0;k<_DOF1D;k++){
@@ -120,9 +122,8 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 				}
 			}
 		}
-		printf("e: %i\n",e);
-		print_3tensor2(tensorA1);
-
+//		printf("e: %i\n",e);
+//		print_3tensor2(tensorA1);
 
 		for(unsigned  p=0;p < _DIM ; p ++){
 			for(unsigned beta =0; beta < _QUADRATURE_NODES ;  beta++){
@@ -210,6 +211,9 @@ PetscErrorCode boundary_mult(Mat A,Vec x, Vec y){
 	GridData *data;
 	MatShellGetContext(A,&data);
 
+
+//	VecView(x,PETSC_VIEWER_STDOUT_WORLD);
+
 	//PREprocessing
 	Vec temp;
 	VecDuplicate(x,&temp);
@@ -221,6 +225,8 @@ PetscErrorCode boundary_mult(Mat A,Vec x, Vec y){
 	}
 
 	VecRestoreArray(temp,&temparray);
+//	VecView(temp,PETSC_VIEWER_STDOUT_WORLD);
+
 
 	//use complete stiffnessmatrix
 	MatMult(data->StiffnessM,temp,y);
@@ -230,10 +236,11 @@ PetscErrorCode boundary_mult(Mat A,Vec x, Vec y){
 	VecGetArray(y,&outputvector);
 
 	for(unsigned i=0;i<data->boundary_dof;i++){
-		outputvector[data->boundary_nodes[i]]=inputvector[data->boundary_nodes[i]];
+		outputvector[data->boundary_nodes[i]] = inputvector[data->boundary_nodes[i]];
 	}
 
 	VecRestoreArrayRead(x,&inputvector);
 	VecRestoreArray(y,&outputvector);
+//	VecView(y,PETSC_VIEWER_STDOUT_WORLD);
 	return ierr;
 }

@@ -62,23 +62,24 @@ int main(int argc,char **args){
 	for(unsigned alpha = 0;alpha < _QUADRATURE_NODES;alpha++){
 		for(unsigned beta = 0;beta < _QUADRATURE_NODES;beta++){
 			for(unsigned e=0;e<data.E;e++){
-				printf("e: %i, a:%i, b:%i, detMat:%f, detAna:%f\n",e,alpha,beta,determinant_Mat2x2(data.DJ[alpha][beta][e]),
-						determinant_jacobian_transformation(e,data.q_nodes[alpha],data.q_nodes[beta],&data));
+				printf("e: %i, a:%i, b:%i, detMat:%f, detAna:%f, diff: %f\n",e,alpha,beta,determinant_Mat2x2(data.DJ[alpha][beta][e]),
+						determinant_jacobian_transformation(e,data.q_nodes[alpha],data.q_nodes[beta],&data),
+						determinant_Mat2x2(data.DJ[alpha][beta][e])-determinant_jacobian_transformation(e,data.q_nodes[alpha],data.q_nodes[beta],&data));
 			}
 		}
 	}
-//	for(unsigned i=0;i<data.global_dof;i++){
+	for(unsigned i=0;i<data.global_dof;i++){
 		Vec x,y;
 		ierr = VecCreateSeq(PETSC_COMM_WORLD,data.global_dof,&x);CHKERRQ(ierr);
 		VecDuplicate(x,&y);
-		VecSetValue(x,0,1,INSERT_VALUES);
+		VecSetValue(x,i,1,INSERT_VALUES);
 		VecAssemblyBegin(x);
 		VecAssemblyEnd(x);
 		MatMult(data.StiffnessM,x,y);
 		VecView(y,PETSC_VIEWER_STDOUT_WORLD);
 		VecDestroy(&x);
 		VecDestroy(&y);
-//	}
+	}
 
 	free_GridData(&data);
 	ierr = PetscFinalize();
