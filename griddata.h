@@ -20,16 +20,15 @@ typedef struct GridData{
 	double q_weights[_QUADRATURE_NODES];
 	double q_nodes[_QUADRATURE_NODES];
 
-	double VandermondeM [_QUADRATURE_NODES][_DOF1D];
-	double derivativeVandermondeM [_QUADRATURE_NODES][_DOF1D];
+	double VandermondeM [2][_QUADRATURE_NODES][_DOF1D];//first entry 0: 1D Vandermonde, first entry 1:1D derivativeVandermonde
+//	double derivativeVandermondeM [_QUADRATURE_NODES][_DOF1D];
 
 	int *boundary_nodes;
 	double *boundary_values;
-	unsigned **FEtoDOF;
+	unsigned ***FEtoDOF;//[E][DIM][DIM]
 
-
+	double* W[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E]
 	double*** DJ[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E][_DIM][_DIM]
-	double* det_DJe[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E]
 	double*** Gepq[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E][_DIM][_DIM]
 
 	Mat	StiffnessM, MassM, boundaryStiffnessM;
@@ -47,8 +46,10 @@ int init_boundary_nodes(GridData *data);
 int init_FEtoDOF(GridData* data);
 int init_GridData_Mat_Vec(GridData *data);
 int init_D(GridData *data);
-int init_detDJe(GridData *data);
+int init_W(GridData *data);
 int init_Gepq(GridData *data);
+
+int set_boundary_values_const(GridData *data,double val);
 
 int free_GridData(GridData *data);
 
@@ -56,7 +57,7 @@ int free_boundary_nodes(GridData *data);
 int free_FEtoDOF(GridData *data);
 int free_GridData_Mat_Vec(GridData *data);
 int free_D(GridData *data);
-int free_detDJe(GridData *data);
+int free_W(GridData *data);
 int free_Gepq(GridData *data);
 
 #endif

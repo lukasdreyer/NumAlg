@@ -28,7 +28,7 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 
 		for(unsigned i=0;i<_DOF1D;i++){
 			for(unsigned j=0;j<_DOF1D;j++){
-				x_local[i][j]=inputvector[data->FEtoDOF[e][i*_DOF1D+j]];//symmetry
+				x_local[i][j]=inputvector[data->FEtoDOF[e][i][j]];//symmetry
 			}
 		}
 
@@ -36,7 +36,7 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 			for(unsigned beta = 0;beta < _QUADRATURE_NODES;beta++){
 				tensorM1[k][beta] =0;
 				for(unsigned l = 0; l < _DOF1D; l++){
-					tensorM1[k][beta] += data->VandermondeM[beta][l]*x_local[k][l];
+					tensorM1[k][beta] += data->VandermondeM[0][beta][l]*x_local[k][l];
 				}
 			}
 		}
@@ -45,7 +45,7 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 			for(unsigned beta = 0;beta < _QUADRATURE_NODES;beta++){
 				tensorM2[alpha][beta] =0;
 				for(unsigned k = 0; k < _DOF1D; k++){
-					tensorM2[alpha][beta] += data->VandermondeM[alpha][k]*tensorM1[k][beta];
+					tensorM2[alpha][beta] += data->VandermondeM[0][alpha][k]*tensorM1[k][beta];
 				}
 			}
 		}
@@ -54,9 +54,8 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 			for(unsigned j = 0;j < _DOF1D;j++){
 				tensorM3[alpha][j] =0;
 				for(unsigned beta = 0; beta < _QUADRATURE_NODES; beta++){
-					tensorM3[alpha][j] += data->VandermondeM[beta][j] * tensorM2[alpha][beta]
-											* data->q_weights[alpha]*data->q_weights[beta]
-											* data->det_DJe[alpha][beta][e];
+					tensorM3[alpha][j] += data->VandermondeM[0][beta][j] * tensorM2[alpha][beta]
+											* data->W[alpha][beta][e];
 				}
 			}
 		}
@@ -64,7 +63,7 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 		for(unsigned i = 0;i < _DOF1D;i++){
 			for(unsigned j = 0;j < _DOF1D;j++){
 				for(unsigned alpha = 0; alpha < _QUADRATURE_NODES; alpha++){
-					outputvector[data->FEtoDOF[e][i*_DOF1D+j]] += data->VandermondeM[alpha][i] * tensorM3[alpha][j];
+					outputvector[data->FEtoDOF[e][i][j]] += data->VandermondeM[0][alpha][i] * tensorM3[alpha][j];
 				}
 			}
 		}
@@ -77,14 +76,6 @@ PetscErrorCode mass_mult(Mat A,Vec x,Vec y){
 
 PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 	double x_local[_DOF1D][_DOF1D];
-	double tensor_vandermonde_value;
-
-	double tensorA1[_DIM][_QUADRATURE_NODES][_DOF1D];
-	double tensorA2[_DIM][_QUADRATURE_NODES][_QUADRATURE_NODES];
-	double tensorA3[_DIM][_QUADRATURE_NODES][_QUADRATURE_NODES];
-	double tensorA4[_DIM][_DOF1D][_QUADRATURE_NODES];
-	double tensorA5[_DOF1D][_DOF1D][_QUADRATURE_NODES];
-
 	GridData *data;
 	const double *inputvector;
 	double *outputvector;
@@ -98,26 +89,65 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 	}
 
 	unsigned s_idx,i_idx,j_idx;//e=(i,j,s), where s determines which coarse element, i is row of refined
+	for(unsigned e=0;e<data->E;e++){
+		for(unsigned i =0; i< _DOF1D ;  i++){
+			for(unsigned j =0; j< _DOF1D ;  j++){
+				outputvector[data->FEtoDOF[e][i][j]] = 0;
+			}
+		}
+	}
 
-//	for(unsigned e=0;e<data->E;e++){
+	for(unsigned e=0;e<data->E;e++){
+//only center coarse element
 //	for(unsigned e=0;e<data->E/5;e++){
-	for(unsigned e=data->E/5;e<data->E;e++){
+//only outer four coarse elements
+//	for(unsigned e=data->E/5;e<data->E;e++){
 		indices(e,&i_idx,&j_idx,&s_idx,data);
 
 		for(unsigned k=0;k<_DOF1D;k++){
 			for(unsigned l=0;l<_DOF1D;l++){
-				x_local[k][l]=inputvector[data->FEtoDOF[e][k*_DOF1D+l]];
+				x_local[k][l]=inputvector[data->FEtoDOF[e][k][l]];
 			}
 		}
+#if 1
+		for(unsigned i =0; i< _DOF1D ;  i++){
+			for(unsigned j =0; j< _DOF1D ;  j++){
+				for(unsigned alpha = 0; alpha < _QUADRATURE_NODES ; alpha++){
+					for(unsigned beta= 0; beta < _QUADRATURE_NODES ;  beta++){
+						for(unsigned p= 0;  p<_DIM  ; p++){
+							for(unsigned q= 0;  q< _DIM ;  q++){
+								for(unsigned k= 0;  k< _DOF1D ;  k++){
+									for(unsigned l= 0; l < _DOF1D ; l++){
+										double product=x_local[k][l];
+										product*=data->W[alpha][beta][e];
+										product*=data->VandermondeM[p==0][alpha][l];
+										product*=data->VandermondeM[p==1][beta][k];
+										product*=data->Gepq[alpha][beta][e][p][q];
+										product*=data->VandermondeM[q==0][alpha][j];
+										product*=data->VandermondeM[q==1][beta][i];
+
+										outputvector[data->FEtoDOF[e][i][j]] += product;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+#else
+		double tensorA1[_DIM][_QUADRATURE_NODES][_DOF1D];
+		double tensorA2[_DIM][_QUADRATURE_NODES][_QUADRATURE_NODES];
+		double tensorA3[_DIM][_QUADRATURE_NODES][_QUADRATURE_NODES];
+		double tensorA4[_DIM][_DOF1D][_QUADRATURE_NODES];
+		double tensorA5[_DOF1D][_DOF1D][_QUADRATURE_NODES];
 
 		for(unsigned p =0; p < _DIM ; p++){
 			for(unsigned  beta=0;beta < _QUADRATURE_NODES ;  beta++){
 				for(unsigned  k=0;k < _DOF1D ;  k++){
 					tensorA1[p][beta][k]=0;
 					for(unsigned  l=0; l< _DOF1D ;  l++){
-						if(p==1) tensor_vandermonde_value = data->derivativeVandermondeM[beta][l];
-						else tensor_vandermonde_value = data->VandermondeM[beta][l];
-						tensorA1[p][beta][k]+=tensor_vandermonde_value*x_local[k][l];
+						tensorA1[p][beta][k]+=data->VandermondeM[p==1][beta][l]*x_local[k][l];
 					}
 				}
 			}
@@ -130,9 +160,7 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 				for(unsigned  alpha=0; alpha< _QUADRATURE_NODES ; alpha ++){
 					tensorA2[p][beta][alpha]=0;
 					for(unsigned  k=0;k < _DOF1D ; k ++){
-						if(p==0) tensor_vandermonde_value = data->derivativeVandermondeM[alpha][k];
-						else tensor_vandermonde_value = data->VandermondeM[alpha][k];
-						tensorA2[p][beta][alpha] += tensor_vandermonde_value*tensorA1[p][beta][k];
+						tensorA2[p][beta][alpha] += data->VandermondeM[alpha][k][p==0]*tensorA1[p][beta][k];
 					}
 				}
 			}
@@ -142,7 +170,7 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 		for(unsigned  q=0; q<  _DIM;  q++){
 			for(unsigned  beta=0; beta< _QUADRATURE_NODES ;  beta++){
 				for(unsigned  alpha=0; alpha< _QUADRATURE_NODES ;  alpha++){
-					tensorA3[1][beta][alpha]=0;
+					tensorA3[q][beta][alpha]=0;
 					for(unsigned  p=0; p< _DOF1D ;  p++){
 						tensorA3[q][beta][alpha] += tensorA2[p][beta][alpha]*data->Gepq[alpha][beta][e][p][q];
 					}
@@ -158,10 +186,8 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 				for(unsigned  alpha=0; alpha< _QUADRATURE_NODES ;  alpha++){
 					tensorA4[q][j][alpha]=0;
 					for(unsigned  beta=0; beta< _DOF1D ;  beta++){
-						if(q==1) tensor_vandermonde_value = data->derivativeVandermondeM[beta][j];
-						else tensor_vandermonde_value = data->VandermondeM[beta][j];
-						tensorA4[q][j][alpha] += tensorA3[q][beta][alpha] * tensor_vandermonde_value
-										* data->det_DJe[alpha][beta][e]* data->q_weights[alpha]*data->q_weights[beta];
+						tensorA4[q][j][alpha] += tensorA3[q][beta][alpha] * data->VandermondeM[q==1][beta][j]
+										* data->W[alpha][beta][e];
 					}
 				}
 			}
@@ -175,9 +201,7 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 				for(unsigned  alpha=0; alpha< _QUADRATURE_NODES ;  alpha++){
 					tensorA5[i][j][alpha]=0;
 					for(unsigned  q=0; q< _DIM ;  q++){
-						if(q==0) tensor_vandermonde_value = data->derivativeVandermondeM[alpha][i];
-						else tensor_vandermonde_value = data->VandermondeM[alpha][i];
-						tensorA5[i][j][alpha]+=tensor_vandermonde_value*tensorA4[q][j][alpha];
+						tensorA5[i][j][alpha]+=data->VandermondeM[q==0][alpha][i]*tensorA4[q][j][alpha];
 					}
 				}
 			}
@@ -189,11 +213,11 @@ PetscErrorCode stiffness_mult(Mat A,Vec x,Vec y){
 		for(unsigned i =0; i< _DOF1D ;  i++){
 			for(unsigned j =0; j< _DOF1D ;  j++){
 				for(unsigned  alpha=0; alpha< _QUADRATURE_NODES ;  alpha++){
-					outputvector[data->FEtoDOF[e][i*_DOF1D+j]] += tensorA5[i][j][alpha];
+					outputvector[data->FEtoDOF[e][i][j]] += tensorA5[i][j][alpha];
 				}
 			}
 		}
-
+#endif
 	}//end element loop
 
 	VecRestoreArrayRead(x,&inputvector);

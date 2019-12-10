@@ -1,66 +1,47 @@
-//static char help[]="Exercise 1."
-/*
- ============================================================================
- Name        : ex1.c
- Author      : Lukas, Hannes
- Description : Ex1
- ============================================================================
- */
-
+static char help[]="Unittesting\n";
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "utilities.h"
+//#include "utilities.h"
 #include "griddata.h"
-#include "transformation.h"
-
-double norm_l2(FunctionPointer f,GridData *data){
-	double sum=0;
-	double f_val,tx,ty;
-	double det_dfe;
-
-	for(unsigned e=0;e<data->E;e++){
-		for(unsigned i=0;i<_QUADRATURE_NODES;i++){
-			for(int j=0;j<_QUADRATURE_NODES;j++){
-				element_transformation(e,data->q_nodes[i],data->q_nodes[j],&tx,&ty,data);
-				f_val = f(tx,ty);
-				det_dfe=fabs(determinant_jacobian_transformation(e,data->q_nodes[i],data->q_nodes[j],data));
-				sum = sum + data->q_weights[i] * data->q_weights[j] * f_val * f_val * det_dfe;
-			}
-		}
-	}
-	return sqrt(sum);
-}
-
-int main(int argc, char **argv) {
-	GridData data;
-
-	double L = 0.8;//<sqrt(1/2)
-	unsigned M = 1;//number of elements in 1D
-
-	data.q_nodes[0]=-sqrt(1./3);
-	data.q_nodes[1]=sqrt(1./3);
-	data.q_weights[0]=1;
-	data.q_weights[1]=1;
+//#include "transformation.h"
 
 
-	printf("norm of constant one function\n");
-	for(int i=0;i<7;i++){
-		init_GridData(M,L,&data);
-		printf("error: %.10f\n", fabs(norm_l2(one,&data)-sqrt(M_PI)));
-		free_GridData(&data);
+//#include "mat2x2.h"
+#include "griddata.h"
+
+#include <petscmat.h>
+
+int main(int argc,char **args){
+	PetscInt			M=1; 			/*Number of elements in one direction*/
+	PetscScalar			L=0.8,norm=0;
+
+	PetscErrorCode		ierr;
+	PetscMPIInt			size;
+
+	GridData			data;
+
+	/*Initalize Petsc and check uniprocessor*/
+
+	ierr = PetscInitialize(&argc,&args,(char*)0,help);if (ierr) return ierr;
+
+	ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
+	if (size != 1) SETERRQ(PETSC_COMM_WORLD,1,"This is a uniprocessor example only!");
+
+	/* Initialise Applicationdata */
+
+
+
+	for(unsigned i=0;i<7;i++){
+		ierr = init_GridData(M,L,&data);CHKERRQ(ierr);
+		printf("MatMult VecDot\n");
+		ierr = MatMult(data.MassM,data.f,data.b);CHKERRQ(ierr);
+
+		ierr = VecDot(data.b,data.f,&norm);CHKERRQ(ierr);
+		printf("error: %.10f,norm: %.10f,pi: %.10f, \n", fabs(norm-M_PI),norm,M_PI);
+		ierr = free_GridData(&data);CHKERRQ(ierr);
 		M*=2;
 	}
-
-	M=1;
-	printf("\nnorm of radius^2\n");
-
-	for(int i=0;i<7;i++){
-		init_GridData(M,L,&data);
-		printf("error: %.10f\n", fabs(norm_l2(radiussquared,&data)-sqrt(M_PI/3)));
-		free_GridData(&data);
-		M*=2;
-	}
-
-	return 0;
+	ierr = PetscFinalize();
+	return ierr;
 }

@@ -25,14 +25,14 @@ int main(int argc,char **args){
 	KSP				ksp;				/* linear solver context */
 	PC				pc;					/* preconditioner context */
 	//TODO: add als console input
-	PetscInt			M=1; 			/*Number of elements in one direction*/
+	PetscInt			M=10; 			/*Number of elements in one direction*/
 	PetscScalar			L=0.8,norm=0;
 
 	PetscErrorCode		ierr;
 	PetscInt			its;
 	PetscMPIInt			size;
 
-	GridData			data;
+	GridData			data;//Maybe allocate memory for struct as well
 
 	/*Initalize Petsc and check uniprocessor*/
 
@@ -49,7 +49,7 @@ int main(int argc,char **args){
 
 	printf("MatMult VecDot\n");
 	ierr = MatMult(data.MassM,data.f,data.b);CHKERRQ(ierr);
-//	VecView(data.b,PETSC_VIEWER_STDOUT_WORLD);
+	VecView(data.b,PETSC_VIEWER_STDOUT_WORLD);
 
 	ierr = VecDot(data.b,data.f,&norm);CHKERRQ(ierr);
 	printf("error: %.10f,norm: %.10f,pi: %.10f, \n", fabs(norm-M_PI),norm,M_PI);
@@ -58,12 +58,15 @@ int main(int argc,char **args){
 	ierr = VecDuplicate(data.f,&x);
 	ierr = VecDuplicate(data.f,&g);
 	ierr = VecDuplicate(data.f,&b0);
+
+	set_boundary_values_const(&data,1);
 	ierr = VecSet(g,0);CHKERRQ(ierr);
 	ierr = VecSetValues(g,data.boundary_dof,data.boundary_nodes,data.boundary_values,INSERT_VALUES);
 	ierr = VecAssemblyBegin(g);
 	ierr = VecAssemblyEnd(g);
+	VecView(g,PETSC_VIEWER_STDOUT_WORLD);
 	MatMult(data.StiffnessM,g,b0);
-//	VecView(data.b,PETSC_VIEWER_STDOUT_WORLD);
+	VecView(b0,PETSC_VIEWER_STDOUT_WORLD);
 
 	VecAXPY(data.b,-1,b0);
 	ierr = VecSetValues(data.b,data.boundary_dof,data.boundary_nodes,data.boundary_values,INSERT_VALUES);

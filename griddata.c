@@ -19,18 +19,18 @@ int init_GridData(unsigned M,double L,GridData *data){
 	//1 dimensional data
 	init_quadrature(data);
 	init_VandermondeM(data);
-	init_derivativeVandermondeM(data);
 
 	printf("allocate and fill boundary and connectivity information 1 \n");
 	//allocate memory and fill matrices/tensors
 	init_boundary_nodes(data);
+	set_boundary_values_const(data,0);
 	init_FEtoDOF(data);
 
-	printf("init 2 \n");
+	printf("init DJ \n");
 	init_D(data);
 
 	printf("init 3 \n");
-	init_detDJe(data);
+	init_W(data);
 
 	printf("init 4 \n");
 	init_Gepq(data);
@@ -41,13 +41,14 @@ int init_GridData(unsigned M,double L,GridData *data){
 	printf("initialisation ready \n");
 	return ierr;
 }
+
 int free_GridData(GridData *data){
 	PetscErrorCode ierr=0;
 	free_boundary_nodes(data);
 	free_FEtoDOF(data);
 	free_GridData_Mat_Vec(data);
 	free_D(data);
-	free_detDJe(data);
+	free_W(data);
 	free_Gepq(data);
 	return ierr;
 }
@@ -82,10 +83,10 @@ int free_D(GridData *data){
 	}
 	return 0;
 }
-int free_detDJe(GridData *data){
+int free_W(GridData *data){
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
-			free(data->det_DJe[alpha][beta]);
+			free(data->W[alpha][beta]);
 		}
 	}
 	return 0;
@@ -111,18 +112,16 @@ int init_quadrature(GridData* data){
 	return 0;
 }
 int init_VandermondeM(GridData *data){
-	data->VandermondeM[0][0]=(1+sqrt(1./3))/2;
-	data->VandermondeM[0][1]=(1-sqrt(1./3))/2;
-	data->VandermondeM[1][0]=(1-sqrt(1./3))/2;
-	data->VandermondeM[1][1]=(1+sqrt(1./3))/2;
-	return 0;
-}
-//TODO:Check
-int init_derivativeVandermondeM(GridData *data){
-	data->derivativeVandermondeM[0][0]=-.5;
-	data->derivativeVandermondeM[0][1]=.5;
-	data->derivativeVandermondeM[1][0]=-.5;
-	data->derivativeVandermondeM[1][1]=.5;
+	//1D Vandermonde
+	data->VandermondeM[0][0][0]=(1+sqrt(1./3))/2;
+	data->VandermondeM[0][0][1]=(1-sqrt(1./3))/2;
+	data->VandermondeM[0][1][0]=(1-sqrt(1./3))/2;
+	data->VandermondeM[0][1][1]=(1+sqrt(1./3))/2;
+	//1D derivative Vandermonde
+	data->VandermondeM[1][0][0]=-.5;
+	data->VandermondeM[1][0][1]=.5;
+	data->VandermondeM[1][1][0]=-.5;
+	data->VandermondeM[1][1][1]=.5;
 	return 0;
 }
 
@@ -132,8 +131,12 @@ int init_boundary_nodes(GridData *data){
 	data->boundary_values = malloc(sizeof(double)*data->boundary_dof);
 	for (unsigned i=0;i<data->boundary_dof;i++){
 		data->boundary_nodes[i]=data->M*(data->M+3+i);
-		//TODO:Input boundary function
-		data->boundary_values[i]=1;// TODO:eigene funktion
+	}
+	return 0;
+}
+int set_boundary_values_const(GridData *data,double val){
+	for (unsigned i=0;i<data->boundary_dof;i++){
+		data->boundary_values[i]=val;
 	}
 	return 0;
 }
@@ -144,7 +147,10 @@ int init_FEtoDOF(GridData* data){
 
 	data->FEtoDOF = malloc(sizeof(unsigned *) * (data->E));
 	for(unsigned e=0;e<data->E;e++){
-		data->FEtoDOF[e] = malloc(sizeof(unsigned) * _DOF2D);
+		data->FEtoDOF[e] = malloc(sizeof(unsigned*) * _DOF1D);
+		for(unsigned i=0;i<_DOF1D;i++){
+			data->FEtoDOF[e][i] = malloc(sizeof(unsigned) * _DOF1D);
+		}
 	}
 
 	for(unsigned i=0;i<M;i++){
@@ -152,7 +158,7 @@ int init_FEtoDOF(GridData* data){
 			//fill center square
 			for(unsigned k=0;k<_DOF1D;k++){
 				for(unsigned l=0;l<_DOF1D;l++){
-					data->FEtoDOF[i*M+j][k*_DOF1D + l]=(i+k)*(M+1)+j +l;
+					data->FEtoDOF[i*M+j][k][l]=(i+k)*(M+1)+j +l;
 				}
 			}
 			for(int s=1;s<=4;s++){//(M+1)^2-1
@@ -161,26 +167,27 @@ int init_FEtoDOF(GridData* data){
 				 * */
 				for(unsigned k=0;k<_DOF1D;k++){
 					for(unsigned l=0;l<_DOF1D;l++){
-						data->FEtoDOF[s*M*M+ i*M + j][k*_DOF1D + l]= ((M+2)*M + (s-1)*M*M) +  (i+k)*M +j +l;
+						data->FEtoDOF[s*M*M+ i*M + j][k][l]= ((M+2)*M + (s-1)*M*M) +  (i+k)*M +j +l;
 					}
 				}
 			}
+			/* adjust boundary between F_1 and F_4 **/
 			if(i==(M-1)){
-				/* adjust boundary between F_1 and F_4 **/
-				data->FEtoDOF[i*M+j+4*M*M][2]=(M+2)*M + j;
-				data->FEtoDOF[i*M+j+4*M*M][3]=(M+2)*M + j +1;
+				data->FEtoDOF[i*M+j+4*M*M][1][0]=(M+2)*M + j;
+				data->FEtoDOF[i*M+j+4*M*M][1][1]=(M+2)*M + j +1;
 
 			}
 		}
 		/* adjust boundary to center square	 */
-		data->FEtoDOF[i*M+M*M][0]=M+i*(M+1);
-		data->FEtoDOF[i*M+M*M][2]=M+(i+1)*(M+1);
-		data->FEtoDOF[i*M+2*M*M][0]=M*(M+2)-i;
-		data->FEtoDOF[i*M+2*M*M][2]=M*(M+2)-(i+1);
-		data->FEtoDOF[i*M+3*M*M][0]=M*(M+1)- i*(M+1);
-		data->FEtoDOF[i*M+3*M*M][2]=M*(M+1)- (i+1) * (M+1);
-		data->FEtoDOF[i*M+4*M*M][0]=i;
-		data->FEtoDOF[i*M+4*M*M][2]=i+1;
+		data->FEtoDOF[i*M+M*M][0][0]=M+i*(M+1);
+		data->FEtoDOF[i*M+M*M][1][0]=M+(i+1)*(M+1);
+		data->FEtoDOF[i*M+2*M*M][0][0]=M*(M+2)-i;
+		data->FEtoDOF[i*M+2*M*M][1][0]=M*(M+2)-(i+1);
+		data->FEtoDOF[i*M+3*M*M][0][0]=M*(M+1)- i*(M+1);
+		data->FEtoDOF[i*M+3*M*M][1][0]=M*(M+1)- (i+1) * (M+1);
+		data->FEtoDOF[i*M+4*M*M][0][0]=i;
+		data->FEtoDOF[i*M+4*M*M][1][0]=i+1;
+
 	}
 	return 0;
 }
@@ -189,7 +196,7 @@ int init_GridData_Mat_Vec(GridData *data){
 
 	ierr = VecCreateSeq(PETSC_COMM_WORLD,data->global_dof,&(data->f));CHKERRQ(ierr);
 	ierr = VecDuplicate(data->f,&(data->b));
-	ierr = VecSet(data->f,1);CHKERRQ(ierr);
+	ierr = VecSet(data->f,-4);CHKERRQ(ierr);
 
 	ierr = MatCreateShell(PETSC_COMM_WORLD,data->global_dof,data->global_dof,
 			PETSC_DECIDE,PETSC_DECIDE,data,&data->MassM);CHKERRQ(ierr);
@@ -227,8 +234,11 @@ int init_D(GridData *data){
 	alloc_Mat2x2(&DQ1);
 
 	fill_Mat2x2(DP,1./data->M,0,0,1./data->M);
-	fill_Mat2x2(DQ1,0,1,-1,1);
+	print_Mat2x2(DP);
+	fill_Mat2x2(DQ1,0,1,-1,0);
+	print_Mat2x2(DQ1);
 	fill_Mat2x2(DA,1, 0 , 0, M_PI/4);
+	print_Mat2x2(DA);
 
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
@@ -245,12 +255,17 @@ int init_D(GridData *data){
 					x=data->q_nodes[alpha];
 					y=data->q_nodes[beta];
 
+
 					project(&x,&y,i,j,data);
+//					printf("x: %f , y: %f \n",x,y);
 
 					coefficients(x,y,&theta,&c,&r,data);
 
 					fill_Mat2x2(DR, (1-c)/2 ,(1-x)*data->L*sin(theta)/(4*cos(theta)*cos(theta)) , 0, 1);
+//					print_Mat2x2(DR);
+
 					fill_Mat2x2(DC,cos(theta), - r*sin(theta) , sin(theta), r*cos(theta));
+//					print_Mat2x2(DC);
 
 					//DJ1=DC DR DA DP
 					MatMult_Mat2x2(DA,DP,DADP);
@@ -272,15 +287,15 @@ int init_D(GridData *data){
 	free_Mat2x2(DQ1);
 	return 0;
 }
-int init_detDJe(GridData *data){
+int init_W(GridData *data){
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
 
-			data->det_DJe[alpha][beta] = malloc(sizeof(double) * data->E);
+			data->W[alpha][beta] = malloc(sizeof(double) * data->E);
 
-			//TODO: Check if det F == determinant_jacobian_transformation
 			for(unsigned e=0;e<data->E;e++){
-				data->det_DJe[alpha][beta][e] = determinant_Mat2x2(data->DJ[alpha][beta][e]);
+				data->W[alpha][beta][e] = fabs(determinant_Mat2x2(data->DJ[alpha][beta][e])
+						* data->q_weights[alpha]*data->q_weights[beta]);
 			}
 		}
 	}
@@ -305,15 +320,17 @@ int init_Gepq(GridData *data){
 
 	for(unsigned alpha=0;alpha<_QUADRATURE_NODES;alpha++){
 		for(unsigned beta=0;beta<_QUADRATURE_NODES;beta++){
-			for(unsigned e=1;e<data->E;e++){
+			for(unsigned e=0;e<data->E;e++){
 				//TODO:CHECK
 
+//				printf("a:%i,b:%i,e:%i\n",alpha,beta,e);
+//				print_Mat2x2(data->DJ[alpha][beta][e]);
 				invert_Mat2x2(data->DJ[alpha][beta][e],DJ_inv);
 
 				transpose_Mat2x2(DJ_inv,DJ_inv_t);
 
-				//TODO:CHECK
 				MatMult_Mat2x2(DJ_inv,DJ_inv_t,data->Gepq[alpha][beta][e]);//Q_N x Q_N x E x DIM x DIM
+//				print_Mat2x2(data->Gepq[alpha][beta][e]);
 			}
 		}
 	}
