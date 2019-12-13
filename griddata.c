@@ -6,37 +6,54 @@
 #include "utilities.h"
 #include "transformation.h"
 #include "mat2x2.h"
+#include "testfunctions.h"
 
-int init_GridData(unsigned M,double L,GridData *data){
+int init_GridData_Input(GridData **data){
+	int M=2;
+	double L=0.4;
+	PetscOptionsGetInt(NULL,NULL,"-m",&M,NULL);
+	PetscOptionsGetReal(NULL,NULL,"-l",&L,NULL);
+	init_GridData(M,L,data);
+	return 0;
+}
+
+
+int init_GridData(unsigned M,double L,GridData **data){
 	PetscErrorCode ierr=0;
-	data->M=M;
-	data->E=5*M*M;
-	data->L=L;
-	data->global_dof=data->E+2*M+1; //5M^2+2M+1
-	data->boundary_dof=4*M;
 
-	printf("fill 1dim-quadrature information \n");
+	*data = malloc(sizeof(GridData));
+
+	//aktuell alles für _DOF2D==4, auslagern für unterschiedliche
+	(*data)->M=M;
+	(*data)->E=5*M*M;
+	(*data)->L=L;
+	(*data)->global_dof=5*M*M+2*M+1;
+	(*data)->boundary_dof=4*M;
+
+	printf("fill 1D quadrature and 1D Vandermonde\n");
 	//1 dimensional data
-	init_quadrature(data);
-	init_VandermondeM(data);
+	init_quadrature(*data);
+	init_VandermondeM(*data);
 
-	printf("allocate and fill boundary and connectivity information 1 \n");
+	printf("allocate and set boundary values to 0 \n");
 	//allocate memory and fill matrices/tensors
-	init_boundary_nodes(data);
-	set_boundary_values_const(data,0);
-	init_FEtoDOF(data);
+	init_boundary_nodes(*data);
+	set_boundary_values_const(*data,0);
+
+	printf("init FetoDOF \n");
+	init_FEtoDOF(*data);
 
 	printf("init DJ \n");
-	init_D(data);
+	init_D(*data);
 
-	printf("init 3 \n");
-	init_W(data);
+	printf("init W \n");
+	init_W(*data);
 
-	printf("init 4 \n");
-	init_Gepq(data);
+	printf("init Gepq \n");
+	init_Gepq(*data);
 
-	printf("init 5 \n");
-	init_GridData_Mat_Vec(data);
+	printf("init Mat Vec \n");
+	init_GridData_Mat_Vec(*data);
 
 	printf("initialisation ready \n");
 	return ierr;
@@ -50,10 +67,12 @@ int free_GridData(GridData *data){
 	free_D(data);
 	free_W(data);
 	free_Gepq(data);
+	free(data);
 	return ierr;
 }
 int free_boundary_nodes(GridData* data){
 	free(data->boundary_nodes);
+	free(data->boundary_values);
 	return 0;
 }
 int free_FEtoDOF(GridData *data){
@@ -66,7 +85,10 @@ int free_FEtoDOF(GridData *data){
 int free_GridData_Mat_Vec(GridData *data){
 	PetscErrorCode ierr;
 	ierr = VecDestroy(&data->f);CHKERRQ(ierr);
-	ierr = VecDestroy(&data->b);CHKERRQ(ierr);
+	ierr = VecDestroy(&data->u_ana);CHKERRQ(ierr);
+	ierr = VecDestroy(&data->lumped_mass_diag);CHKERRQ(ierr);
+	ierr = VecDestroy(&data->lumped_mass_diag_inv);CHKERRQ(ierr);
+
 	ierr = MatDestroy(&data->StiffnessM);CHKERRQ(ierr);
 	ierr = MatDestroy(&data->MassM);CHKERRQ(ierr);
 	ierr = MatDestroy(&data->boundaryStiffnessM);CHKERRQ(ierr);
@@ -140,6 +162,25 @@ int set_boundary_values_const(GridData *data,double val){
 	}
 	return 0;
 }
+int set_boundary_initial(TestFunction u,TestFunction laplace_u,GridData *data){
+	double *farray;
+	double *uarray;
+	double x,y;
+	VecGetArray(data->f,&farray);
+	VecGetArray(data->u_ana,&uarray);
+	for(unsigned dof=0;dof < data->global_dof;dof++){
+		coordinates_dof(dof,&x,&y,data);
+		uarray[dof] = u(x,y,data);
+		farray[dof] = -laplace_u(x,y,data);
+	}
+	for(unsigned b_dof=0;b_dof < data->boundary_dof;b_dof++){
+		coordinates_dof(data->boundary_nodes[b_dof],&x,&y,data);
+		data->boundary_values[b_dof]=u(x,y,data);
+	}
+	VecRestoreArray(data->f,&farray);
+	VecRestoreArray(data->u_ana,&uarray);
+	return 0;
+}
 int init_FEtoDOF(GridData* data){
 	if(_DOF2D!=4) return -1;
 
@@ -195,8 +236,11 @@ int init_GridData_Mat_Vec(GridData *data){
 	PetscErrorCode ierr=0;
 
 	ierr = VecCreateSeq(PETSC_COMM_WORLD,data->global_dof,&(data->f));CHKERRQ(ierr);
-	ierr = VecDuplicate(data->f,&(data->b));
-	ierr = VecSet(data->f,-4);CHKERRQ(ierr);
+	ierr = VecSet(data->f,1);CHKERRQ(ierr);//set to 1 for lumped_mass_diag
+
+	ierr = VecDuplicate(data->f,&data->u_ana);
+	ierr = VecDuplicate(data->f,&data->lumped_mass_diag);
+	ierr = VecDuplicate(data->f,&data->lumped_mass_diag_inv);
 
 	ierr = MatCreateShell(PETSC_COMM_WORLD,data->global_dof,data->global_dof,
 			PETSC_DECIDE,PETSC_DECIDE,data,&data->MassM);CHKERRQ(ierr);
@@ -208,6 +252,9 @@ int init_GridData_Mat_Vec(GridData *data){
 	ierr = MatShellSetOperation(data->MassM,MATOP_MULT,(void(*)(void))mass_mult);CHKERRQ(ierr);
 	ierr = MatShellSetOperation(data->StiffnessM,MATOP_MULT,(void(*)(void))stiffness_mult);CHKERRQ(ierr);
 	ierr = MatShellSetOperation(data->boundaryStiffnessM,MATOP_MULT,(void(*)(void))boundary_mult);CHKERRQ(ierr);
+	ierr = MatMult(data->MassM,data->f,data->lumped_mass_diag);CHKERRQ(ierr);
+	VecCopy(data->lumped_mass_diag,data->lumped_mass_diag_inv);
+	VecReciprocal(data->lumped_mass_diag_inv);
 	return ierr;
 }
 int init_D(GridData *data){

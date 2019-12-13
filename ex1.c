@@ -3,12 +3,9 @@ static char help[]="Unittesting\n";
 #include <stdlib.h>
 #include <math.h>
 //#include "utilities.h"
+#include "testfunctions.h"
 #include "griddata.h"
-//#include "transformation.h"
 
-
-//#include "mat2x2.h"
-#include "griddata.h"
 
 #include <petscmat.h>
 
@@ -19,7 +16,7 @@ int main(int argc,char **args){
 	PetscErrorCode		ierr;
 	PetscMPIInt			size;
 
-	GridData			data;
+	GridData			*data;
 
 	/*Initalize Petsc and check uniprocessor*/
 
@@ -28,18 +25,14 @@ int main(int argc,char **args){
 	ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
 	if (size != 1) SETERRQ(PETSC_COMM_WORLD,1,"This is a uniprocessor example only!");
 
-	/* Initialise Applicationdata */
-
 
 
 	for(unsigned i=0;i<7;i++){
 		ierr = init_GridData(M,L,&data);CHKERRQ(ierr);
 		printf("MatMult VecDot\n");
-		ierr = MatMult(data.MassM,data.f,data.b);CHKERRQ(ierr);
-
-		ierr = VecDot(data.b,data.f,&norm);CHKERRQ(ierr);
+		ierr = VecDot(data->lumped_mass_diag,data->f,&norm);CHKERRQ(ierr);
 		printf("error: %.10f,norm: %.10f,pi: %.10f, \n", fabs(norm-M_PI),norm,M_PI);
-		ierr = free_GridData(&data);CHKERRQ(ierr);
+		ierr = free_GridData(data);CHKERRQ(ierr);
 		M*=2;
 	}
 	ierr = PetscFinalize();

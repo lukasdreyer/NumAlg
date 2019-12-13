@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <petscmat.h>
 #include "matshell.h"
-#include "utilities.h"
+
 
 typedef struct GridData{
 	double L;
@@ -21,7 +21,6 @@ typedef struct GridData{
 	double q_nodes[_QUADRATURE_NODES];
 
 	double VandermondeM [2][_QUADRATURE_NODES][_DOF1D];//first entry 0: 1D Vandermonde, first entry 1:1D derivativeVandermonde
-//	double derivativeVandermondeM [_QUADRATURE_NODES][_DOF1D];
 
 	int *boundary_nodes;
 	double *boundary_values;
@@ -32,11 +31,20 @@ typedef struct GridData{
 	double*** Gepq[_QUADRATURE_NODES][_QUADRATURE_NODES];//[E][_DIM][_DIM]
 
 	Mat	StiffnessM, MassM, boundaryStiffnessM;
-	Vec b,f;
+	Vec f,lumped_mass_diag,lumped_mass_diag_inv,u_ana;
 
+	struct TFData{
+		int A,B;
+
+	}tfdata;
 }GridData;
 
-int init_GridData(unsigned M,double L,GridData *data);
+typedef double (*TestFunction) (double, double, GridData *);
+
+
+int init_GridData(unsigned M,double L,GridData **data);
+int init_GridData_Input(GridData **data);
+
 
 int init_quadrature(GridData* data);
 int init_VandermondeM(GridData *data);
@@ -50,6 +58,7 @@ int init_W(GridData *data);
 int init_Gepq(GridData *data);
 
 int set_boundary_values_const(GridData *data,double val);
+int set_boundary_initial(TestFunction u,TestFunction laplace_u,GridData *data);
 
 int free_GridData(GridData *data);
 

@@ -5,6 +5,7 @@ static char help[]="Unittesting\n";
 
 #include <stdio.h>
 #include <petscmat.h>
+#include "utilities.h"
 
 int main(int argc,char **args){
 	double **M;
@@ -46,7 +47,7 @@ int main(int argc,char **args){
 	PetscErrorCode		ierr;
 	PetscMPIInt			size;
 
-	GridData			data;
+	GridData			*data;
 
 	/*Initalize Petsc and check uniprocessor*/
 
@@ -59,25 +60,24 @@ int main(int argc,char **args){
 
 	ierr = init_GridData(elements1D,L,&data);CHKERRQ(ierr);
 
-	for(unsigned i=0;i<data.global_dof;i++){
+	for(unsigned i=0;i<data->global_dof;i++){
 		Vec x,y;
-		ierr = VecCreateSeq(PETSC_COMM_WORLD,data.global_dof,&x);CHKERRQ(ierr);
+		ierr = VecCreateSeq(PETSC_COMM_WORLD,data->global_dof,&x);CHKERRQ(ierr);
 		VecDuplicate(x,&y);
-//		VecSetValue(x,0,1,INSERT_VALUES);
 		VecSetValue(x,i,1,INSERT_VALUES);
 		VecAssemblyBegin(x);
 		VecAssemblyEnd(x);
-		MatMult(data.StiffnessM,x,y);
+		MatMult(data->StiffnessM,x,y);
 		VecView(y,PETSC_VIEWER_STDOUT_WORLD);
 		VecDestroy(&x);
 		VecDestroy(&y);
 	}
 
-	for(unsigned e=0;e<data.E;e++){
+	for(unsigned e=0;e<data->E;e++){
 		printf("e:%i\n",e);
-		print_int_mat(data.FEtoDOF[e],2,2);
+		print_int_mat(data->FEtoDOF[e],2,2);
 	}
-	free_GridData(&data);
+	free_GridData(data);
 	ierr = PetscFinalize();
 	return ierr;
 }

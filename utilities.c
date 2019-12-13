@@ -5,11 +5,27 @@
 #include <math.h>
 #include <stdlib.h>
 
-double radiussquared(double a, double b){
-	return a*a+b*b;
-}
-double one(double a, double b){
-	return 1;
+
+
+int print_gnuplot_vec_circle(char* filename,Vec v,GridData *data){
+	FILE *fp;
+	fp = fopen(filename,"w");
+	if(fp == NULL) {
+		printf("Datei konnte NICHT geoeffnet werden.\n");
+		return -1;
+	}
+
+	double x,y;
+	const double *values;
+	VecGetArrayRead(v,&values);
+	for(unsigned i=0;i<data->global_dof;i++){
+		coordinates_dof(i,&x,&y,data);
+		fprintf(fp,"%f %f %f\n",x,y,values[i]);
+	}
+	VecRestoreArrayRead(v,&values);
+
+	fclose(fp);
+	return 0;
 }
 
 void print_int_mat(unsigned **mat,unsigned n,unsigned m){
