@@ -2,6 +2,7 @@
 #include <math.h>
 
 //F_e = F_s * P_(i,j)
+//i -> y coordinate
 void indices(unsigned e,unsigned *i,unsigned *j,unsigned *s, GridData *data){
 	unsigned M=data->M;
 	*s=e/(M*M);
@@ -11,10 +12,16 @@ void indices(unsigned e,unsigned *i,unsigned *j,unsigned *s, GridData *data){
 }
 /* Implementation of coefficients needed for transformation */
 void coefficients(double x, double y, double *theta, double *c, double *r,GridData *data){
+	//linear transformation of y to the angle theta
 	*theta=M_PI/4*y;
+
+	//distance to the square boundary from the center along a ray with angle theta
 	*c=data->L/(2*cos(*theta));
+
+	//linear transformation of [-1,1] -> [c,1]
 	*r = (x*(1-*c)+(1+*c))/2;
 }
+
 void coordinates_dof(unsigned dof, double *x,double *y, GridData *data){
 	unsigned i,j,outer_dof,number_of_rot; //i -> y coordinate, j-> x coordinate
 	double theta,c,r;
@@ -24,6 +31,7 @@ void coordinates_dof(unsigned dof, double *x,double *y, GridData *data){
 		j = dof % (data->M+1);//xcoord
 		*x = -1 + (2. * j) / data->M;//from left to right
 		*y = 1 - (2. * i) / data->M;//from up to down
+		//apply F_0
 		*x *= (data->L/2);
 		*y *= (data->L/2);
 		return;
@@ -36,9 +44,8 @@ void coordinates_dof(unsigned dof, double *x,double *y, GridData *data){
 		*y = 1 - (2. * i) / data->M;
 	}
 
-	//apply F_1 to the right
+	//apply F_1 to the coordinates, TODO: auslagern
 	coefficients(*x,*y,&theta,&c,&r,data);
-
 	*x = r * cos(theta);
 	*y = r * sin(theta);
 

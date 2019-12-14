@@ -20,7 +20,7 @@ typedef struct GridData{
 	double q_weights[_QUADRATURE_NODES];
 	double q_nodes[_QUADRATURE_NODES];
 
-	double VandermondeM [2][_QUADRATURE_NODES][_DOF1D];//first entry 0: 1D Vandermonde, first entry 1:1D derivativeVandermonde
+	double VandermondeM [2][_QUADRATURE_NODES][_DOF1D];//first entry 0: 1D Vandermonde, first entry 1: 1D derivativeVandermonde
 
 	int *boundary_nodes;
 	double *boundary_values;

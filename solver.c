@@ -44,7 +44,7 @@ int solve(Vec x,GridData *data){
 
 	PetscErrorCode		ierr;
 	PetscInt			its;
-	Vec 			b;
+	Vec 				b;
 
 	init_rhs(&b,data);//allocates memory for b
 

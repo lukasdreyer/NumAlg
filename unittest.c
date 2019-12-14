@@ -7,6 +7,49 @@ static char help[]="Unittesting\n";
 #include <petscmat.h>
 #include "utilities.h"
 
+/*	for(unsigned i=0;i<data->global_dof;i++){
+		Vec x,y;
+		ierr = VecCreateSeq(PETSC_COMM_WORLD,data->global_dof,&x);CHKERRQ(ierr);
+		VecDuplicate(x,&y);
+		VecSetValue(x,i,1,INSERT_VALUES);
+		VecAssemblyBegin(x);
+		VecAssemblyEnd(x);
+		MatMult(data->StiffnessM,x,y);
+		VecView(y,PETSC_VIEWER_STDOUT_WORLD);
+		VecDestroy(&x);
+		VecDestroy(&y);
+	}
+*/
+int print_shell_mat(Mat M,GridData *data){//attention, prints transpose mat;
+	Vec unit_vec;
+	Vec mat_row;
+	double *values;
+	VecDuplicate(data->f,&unit_vec);
+	VecDuplicate(data->f,&mat_row);
+	FILE  *fp;
+	fp =fopen("shell_mat.txt","w");
+	for(unsigned i=0;i<data->global_dof;i++){
+
+		VecSet(unit_vec,0);
+		VecSetValue(unit_vec,i,1,INSERT_VALUES);
+		VecAssemblyBegin(unit_vec);
+		VecAssemblyEnd(unit_vec);
+
+		MatMult(M,unit_vec,mat_row);
+		VecGetArray(mat_row,&values);
+		for(unsigned j=0;j<data->global_dof;j++){
+			fprintf(fp,"%f ",values[j]);
+		}
+
+		fprintf(fp,"\n");
+	}
+
+	VecDestroy(&unit_vec);
+	VecDestroy(&mat_row);
+
+	return 0;
+}
+
 int main(int argc,char **args){
 	double **M;
 	double **M_inv;
@@ -41,7 +84,7 @@ int main(int argc,char **args){
 	free_Mat2x2(M_inv_x_M_inv_t);
 	free_Mat2x2(G);
 
-	PetscInt			elements1D=1; 			/*Number of elements in one direction*/
+	PetscInt			elements1D=2; 			/*Number of elements in one direction*/
 	PetscScalar			L=0.8;
 
 	PetscErrorCode		ierr;
@@ -60,24 +103,24 @@ int main(int argc,char **args){
 
 	ierr = init_GridData(elements1D,L,&data);CHKERRQ(ierr);
 
-	for(unsigned i=0;i<data->global_dof;i++){
-		Vec x,y;
-		ierr = VecCreateSeq(PETSC_COMM_WORLD,data->global_dof,&x);CHKERRQ(ierr);
-		VecDuplicate(x,&y);
-		VecSetValue(x,i,1,INSERT_VALUES);
-		VecAssemblyBegin(x);
-		VecAssemblyEnd(x);
-		MatMult(data->StiffnessM,x,y);
-		VecView(y,PETSC_VIEWER_STDOUT_WORLD);
-		VecDestroy(&x);
-		VecDestroy(&y);
-	}
+	Vec x,y;
+	ierr = VecCreateSeq(PETSC_COMM_WORLD,data->global_dof,&x);CHKERRQ(ierr);
+	VecDuplicate(x,&y);
+	VecSet(x,1);
 
-	for(unsigned e=0;e<data->E;e++){
+	MatMult(data->StiffnessM,x,y);
+
+	VecView(y,PETSC_VIEWER_STDOUT_WORLD);
+	VecDestroy(&x);
+	VecDestroy(&y);
+
+	print_shell_mat(data->StiffnessM,data);
+
+/*	for(unsigned e=0;e<data->E;e++){
 		printf("e:%i\n",e);
 		print_int_mat(data->FEtoDOF[e],2,2);
 	}
-	free_GridData(data);
+*/	free_GridData(data);
 	ierr = PetscFinalize();
 	return ierr;
 }
