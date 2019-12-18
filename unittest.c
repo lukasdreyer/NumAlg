@@ -84,7 +84,7 @@ int main(int argc,char **args){
 	free_Mat2x2(M_inv_x_M_inv_t);
 	free_Mat2x2(G);
 
-	PetscInt			elements1D=2; 			/*Number of elements in one direction*/
+	PetscInt			elements1D=4; 			/*Number of elements in one direction*/
 	PetscScalar			L=0.8;
 
 	PetscErrorCode		ierr;
@@ -110,17 +110,17 @@ int main(int argc,char **args){
 
 	MatMult(data->StiffnessM,x,y);
 
-	VecView(y,PETSC_VIEWER_STDOUT_WORLD);
+//	VecView(y,PETSC_VIEWER_STDOUT_WORLD);
 	VecDestroy(&x);
 	VecDestroy(&y);
 
 	print_shell_mat(data->StiffnessM,data);
 
-/*	for(unsigned e=0;e<data->E;e++){
+	for(unsigned e=0;e<data->E;e++){
 		printf("e:%i\n",e);
 		print_int_mat(data->FEtoDOF[e],2,2);
 	}
-*/	free_GridData(data);
+	free_GridData(data);
 	ierr = PetscFinalize();
 	return ierr;
 }

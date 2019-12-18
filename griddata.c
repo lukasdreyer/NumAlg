@@ -252,6 +252,7 @@ int init_GridData_Mat_Vec(GridData *data){
 	ierr = MatShellSetOperation(data->MassM,MATOP_MULT,(void(*)(void))mass_mult);CHKERRQ(ierr);
 	ierr = MatShellSetOperation(data->StiffnessM,MATOP_MULT,(void(*)(void))stiffness_mult);CHKERRQ(ierr);
 	ierr = MatShellSetOperation(data->boundaryStiffnessM,MATOP_MULT,(void(*)(void))boundary_mult);CHKERRQ(ierr);
+
 	ierr = MatMult(data->MassM,data->f,data->lumped_mass_diag);CHKERRQ(ierr);
 	VecCopy(data->lumped_mass_diag,data->lumped_mass_diag_inv);
 	VecReciprocal(data->lumped_mass_diag_inv);
